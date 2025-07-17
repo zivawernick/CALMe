@@ -27,6 +27,7 @@ For each question, define all possible response categories and their detection r
 For each category above:
 
 **Category: [ID]**
+- Response text: "_________________________________"
 - Next question: [Question ID]
 - Additional actions: _________________ (e.g., "trigger silent mode", "show activity menu", "log high stress")
 
