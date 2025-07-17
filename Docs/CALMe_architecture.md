@@ -1,4 +1,4 @@
-# Trauma Response App - Architecture Document
+# **CALMe** Trauma Response App - Architecture Document
 
 ## Executive Summary
 
