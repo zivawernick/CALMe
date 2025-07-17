@@ -1,3 +1,8 @@
+# **DEPRICATED-** 
+
+This document has been replaced by seperate arcitecture and implimentation documents.
+
+
 # Trauma Response App - Developer Implementation Guide
 
 **Note on Documentation Links**: All documentation links in this guide were valid as of the guide's creation. Please verify current URLs and version numbers before implementation, especially for:
