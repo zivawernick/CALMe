@@ -1,4 +1,4 @@
-#**DEPRICATED**
+# **DEPRICATED**
 
 
 # Technical Specification Template for Conversation Design
