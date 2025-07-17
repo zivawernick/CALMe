@@ -1,3 +1,6 @@
+#**DEPRICATED**
+
+
 # Technical Specification Template for Conversation Design
 
 ## Overview
