@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+import BreathingExercise from './breathing_module/BreathingExercise'
 
 interface ClassificationQuestion {
   id: string;
@@ -173,6 +174,8 @@ function App() {
   const [userInput, setUserInput] = useState('');
   const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
   const [conversationHistory, setConversationHistory] = useState<Array<{step: ConversationStep, result: any}>>([]);
+  const [showBreathing, setShowBreathing] = useState(false);
+  const [shouldAutoLaunchBreathing, setShouldAutoLaunchBreathing] = useState(false);
 
   const handleSubmit = () => {
     if (!userInput.trim()) return;
@@ -217,6 +220,12 @@ function App() {
       const newHistory = [...conversationHistory, {step: currentStep, result: stepResult}];
       setConversationHistory(newHistory);
       
+      // Check if user is highly stressed and trigger breathing exercise
+      const stressResult = stepResult as ClassificationResult;
+      if (stressResult.category === 'HIGH_STRESS') {
+        setShouldAutoLaunchBreathing(true);
+      }
+      
       setCurrentStep('complete');
     }
     
@@ -238,7 +247,28 @@ function App() {
     setUserInput('');
     setResult(null);
     setConversationHistory([]);
+    setShouldAutoLaunchBreathing(false);
   };
+
+  const launchBreathing = () => {
+    setShowBreathing(true);
+  };
+
+  const closeBreathing = () => {
+    setShowBreathing(false);
+    setShouldAutoLaunchBreathing(false);
+  };
+
+  // Auto-launch breathing exercise when needed
+  useEffect(() => {
+    if (shouldAutoLaunchBreathing && currentStep === 'complete') {
+      const timer = setTimeout(() => {
+        setShowBreathing(true);
+      }, 1000); // Small delay to show the result first
+      
+      return () => clearTimeout(timer);
+    }
+  }, [shouldAutoLaunchBreathing, currentStep]);
 
   const currentQuestionData = getCurrentQuestion();
 
@@ -258,20 +288,49 @@ function App() {
             </div>
           ))}
         </div>
-        <button 
-          onClick={resetConversation}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            fontSize: '16px',
-            cursor: 'pointer'
-          }}
-        >
-          Start New Conversation
-        </button>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          <button 
+            onClick={resetConversation}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              fontSize: '16px',
+              cursor: 'pointer'
+            }}
+          >
+            Start New Conversation
+          </button>
+          <button 
+            onClick={launchBreathing}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              fontSize: '16px',
+              cursor: 'pointer'
+            }}
+          >
+            🫁 Breathing Exercise
+          </button>
+        </div>
+        
+        {shouldAutoLaunchBreathing && (
+          <div style={{ 
+            marginTop: '20px', 
+            padding: '15px', 
+            backgroundColor: '#fef3c7', 
+            border: '1px solid #f59e0b',
+            borderRadius: '8px',
+            color: '#92400e'
+          }}>
+            <strong>High stress detected.</strong> A breathing exercise will launch automatically to help you calm down.
+          </div>
+        )}
       </div>
     );
   }
@@ -303,28 +362,9 @@ function App() {
       )}
 
       <div style={{ border: '1px solid #ddd', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-        <h3>Question ({currentQuestionData.type.toUpperCase()})</h3>
-        <p><strong>{currentQuestionData.question}</strong></p>
-        
-        {currentQuestionData.type === 'classification' && (
-          <div style={{ marginTop: '15px' }}>
-            <h4>Categories & Keywords:</h4>
-            {Object.entries((currentQuestionData as ClassificationQuestion).categories).map(([category, data]) => (
-              <div key={category} style={{ marginBottom: '10px' }}>
-                <strong>{category}:</strong> {data.keywords.join(', ')}
-                <br />
-                <em>Examples: {data.sampleInputs.join('; ')}</em>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        {currentQuestionData.type === 'extraction' && (
-          <div style={{ marginTop: '15px' }}>
-            <p><strong>Extracting:</strong> {(currentQuestionData as ExtractionQuestion).informationType}</p>
-            <p><strong>Variable:</strong> {(currentQuestionData as ExtractionQuestion).extractTo}</p>
-          </div>
-        )}
+        <p style={{ fontSize: '18px', lineHeight: '1.5' }}>
+          <strong>{currentQuestionData.question}</strong>
+        </p>
       </div>
 
       <div style={{ marginBottom: '20px' }}>
@@ -379,6 +419,7 @@ function App() {
                   currentStep === 'safety' && (result as ClassificationResult).category === 'DANGER' ? 'Emergency protocol' :
                   currentStep === 'safety' ? 'Location extraction' :
                   currentStep === 'location' ? 'Stress assessment' :
+                  currentStep === 'stress' && (result as ClassificationResult).category === 'HIGH_STRESS' ? 'Breathing exercise will launch' :
                   'Conversation complete'
                 }</em>
               </p>
@@ -396,6 +437,42 @@ function App() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Fixed breathing button at bottom */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 100
+      }}>
+        <button 
+          onClick={launchBreathing}
+          style={{
+            padding: '15px 25px',
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50px',
+            fontSize: '18px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          🫁 Breathing Exercise
+        </button>
+      </div>
+
+      {/* Breathing Exercise Overlay */}
+      {showBreathing && (
+        <BreathingExercise 
+          onClose={closeBreathing}
+          onComplete={closeBreathing}
+        />
       )}
     </div>
   );
