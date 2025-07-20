@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import BreathingExercise from './breathing_module/BreathingExercise'
+import { classifySafety, classifyStress, extractLocation } from './nlp/semanticParser'
 
 interface ClassificationQuestion {
   id: string;
@@ -30,6 +31,7 @@ interface ClassificationResult {
   category: string;
   confidence: number;
   matchedKeywords: string[];
+  reasoning?: string;
 }
 
 interface ExtractionResult {
@@ -37,6 +39,7 @@ interface ExtractionResult {
   extractedValue: string;
   confidence: number;
   informationType: string;
+  extractionMethod?: string;
 }
 
 const SAFETY_ASSESSMENT: ClassificationQuestion = {
@@ -91,79 +94,53 @@ const LOCATION_EXTRACTION: ExtractionQuestion = {
   informationType: 'location'
 };
 
-function classifyText(text: string, question: ClassificationQuestion): ClassificationResult {
-  const lowerText = text.toLowerCase();
-  const results: Array<{ category: string; score: number; matches: string[] }> = [];
+function classifyTextSemantic(text: string, question: ClassificationQuestion): ClassificationResult {
+  // Use semantic parsing based on question type
+  let semanticResult;
   
-  for (const [category, data] of Object.entries(question.categories)) {
-    const matches: string[] = [];
-    let score = 0;
-    
-    for (const keyword of data.keywords) {
-      if (lowerText.includes(keyword.toLowerCase())) {
-        matches.push(keyword);
-        score += 1;
-      }
-    }
-    
-    if (score > 0) {
-      results.push({ category, score, matches });
-    }
-  }
-  
-  results.sort((a, b) => b.score - a.score);
-  
-  if (results.length === 0) {
+  if (question.id === 'SAFETY_CHECK_1') {
+    semanticResult = classifySafety(text);
+  } else if (question.id === 'STRESS_ASSESSMENT_1') {
+    semanticResult = classifyStress(text);
+  } else {
+    // Fallback for unknown question types
     return {
       type: 'classification',
       category: question.defaultCategory,
-      confidence: 0.1,
-      matchedKeywords: []
+      confidence: 0.5,
+      matchedKeywords: [],
+      reasoning: 'Unknown question type'
     };
   }
   
-  const best = results[0];
-  const maxPossibleMatches = Math.max(...Object.values(question.categories).map(cat => cat.keywords.length));
-  const confidence = Math.min(best.score / maxPossibleMatches, 1.0);
-  
   return {
     type: 'classification',
-    category: best.category,
-    confidence,
-    matchedKeywords: best.matches
+    category: semanticResult.category,
+    confidence: semanticResult.confidence,
+    matchedKeywords: [], // Semantic parsing doesn't use keywords
+    reasoning: semanticResult.reasoning
   };
 }
 
-function extractInformation(text: string, question: ExtractionQuestion): ExtractionResult {
-  const trimmedText = text.trim();
-  
+function extractInformationSemantic(text: string, question: ExtractionQuestion): ExtractionResult {
   if (question.informationType === 'location') {
-    const locationPatterns = [
-      /(?:at|in|from)\s+(.+)/i,
-      /(?:home|house|apartment|building|shelter|office|school|hospital)/i,
-      /(.+(?:street|st|avenue|ave|road|rd|boulevard|blvd))/i,
-      /(.{2,})/
-    ];
-    
-    for (const pattern of locationPatterns) {
-      const match = trimmedText.match(pattern);
-      if (match) {
-        const extracted = match[1] || match[0];
-        return {
-          type: 'extraction',
-          extractedValue: extracted.trim(),
-          confidence: 0.8,
-          informationType: question.informationType
-        };
-      }
-    }
+    const locationResult = extractLocation(text);
+    return {
+      type: 'extraction',
+      extractedValue: locationResult.extractedValue,
+      confidence: locationResult.confidence,
+      informationType: question.informationType,
+      extractionMethod: locationResult.extractionMethod
+    };
   }
   
+  // Fallback for other extraction types
   return {
     type: 'extraction',
-    extractedValue: trimmedText,
-    confidence: trimmedText.length > 2 ? 0.6 : 0.2,
-    informationType: question.informationType
+    extractedValue: text.trim(),
+    confidence: 0.5,
+    informationType: question.informationType,
+    extractionMethod: 'Direct text'
   };
 }
 
@@ -176,6 +153,7 @@ function App() {
   const [conversationHistory, setConversationHistory] = useState<Array<{step: ConversationStep, result: any}>>([]);
   const [showBreathing, setShowBreathing] = useState(false);
   const [shouldAutoLaunchBreathing, setShouldAutoLaunchBreathing] = useState(false);
+  const [breathingTimeout, setBreathingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const handleSubmit = () => {
     if (!userInput.trim()) return;
@@ -183,7 +161,7 @@ function App() {
     let stepResult: ClassificationResult | ExtractionResult;
     
     if (currentStep === 'safety') {
-      stepResult = classifyText(userInput, SAFETY_ASSESSMENT);
+      stepResult = classifyTextSemantic(userInput, SAFETY_ASSESSMENT);
       setResult(stepResult);
       
       // Update conversation history
@@ -202,7 +180,7 @@ function App() {
       }
       
     } else if (currentStep === 'location') {
-      stepResult = extractInformation(userInput, LOCATION_EXTRACTION);
+      stepResult = extractInformationSemantic(userInput, LOCATION_EXTRACTION);
       setResult(stepResult);
       
       // Update conversation history
@@ -213,7 +191,7 @@ function App() {
       setCurrentStep('stress');
       
     } else if (currentStep === 'stress') {
-      stepResult = classifyText(userInput, STRESS_ASSESSMENT);
+      stepResult = classifyTextSemantic(userInput, STRESS_ASSESSMENT);
       setResult(stepResult);
       
       // Update conversation history
@@ -224,6 +202,14 @@ function App() {
       const stressResult = stepResult as ClassificationResult;
       if (stressResult.category === 'HIGH_STRESS') {
         setShouldAutoLaunchBreathing(true);
+        console.log('High stress detected, setting breathing timer...');
+        // Launch breathing exercise immediately
+        const timer = setTimeout(() => {
+          console.log('Breathing timer fired, launching exercise...');
+          setShowBreathing(true);
+          console.log('setShowBreathing(true) called');
+        }, 1500);
+        setBreathingTimeout(timer);
       }
       
       setCurrentStep('complete');
@@ -243,6 +229,11 @@ function App() {
   };
 
   const resetConversation = () => {
+    // Clear any pending breathing timer
+    if (breathingTimeout) {
+      clearTimeout(breathingTimeout);
+      setBreathingTimeout(null);
+    }
     setCurrentStep('safety');
     setUserInput('');
     setResult(null);
@@ -255,20 +246,28 @@ function App() {
   };
 
   const closeBreathing = () => {
+    // Clear any pending breathing timer
+    if (breathingTimeout) {
+      clearTimeout(breathingTimeout);
+      setBreathingTimeout(null);
+    }
     setShowBreathing(false);
     setShouldAutoLaunchBreathing(false);
   };
 
-  // Auto-launch breathing exercise when needed
+  // Cleanup breathing timer on component unmount
   useEffect(() => {
-    if (shouldAutoLaunchBreathing && currentStep === 'complete') {
-      const timer = setTimeout(() => {
-        setShowBreathing(true);
-      }, 1000); // Small delay to show the result first
-      
-      return () => clearTimeout(timer);
-    }
-  }, [shouldAutoLaunchBreathing, currentStep]);
+    return () => {
+      if (breathingTimeout) {
+        clearTimeout(breathingTimeout);
+      }
+    };
+  }, [breathingTimeout]);
+
+  // Debug showBreathing state changes
+  useEffect(() => {
+    console.log('showBreathing state changed to:', showBreathing);
+  }, [showBreathing]);
 
   const currentQuestionData = getCurrentQuestion();
 
@@ -330,6 +329,14 @@ function App() {
           }}>
             <strong>High stress detected.</strong> A breathing exercise will launch automatically to help you calm down.
           </div>
+        )}
+
+        {/* Breathing Exercise Overlay - also needed in completion screen */}
+        {showBreathing && (
+          <BreathingExercise 
+            onClose={closeBreathing}
+            onComplete={closeBreathing}
+          />
         )}
       </div>
     );
@@ -412,7 +419,7 @@ function App() {
             <div>
               <p><strong>Category:</strong> {(result as ClassificationResult).category}</p>
               <p><strong>Confidence:</strong> {Math.round((result as ClassificationResult).confidence * 100)}%</p>
-              <p><strong>Matched Keywords:</strong> {(result as ClassificationResult).matchedKeywords.join(', ') || 'None'}</p>
+              <p><strong>Analysis:</strong> {(result as ClassificationResult).reasoning || 'Semantic analysis complete'}</p>
               <p style={{ marginTop: '10px', color: '#666' }}>
                 <em>Next: {
                   currentStep === 'safety' && (result as ClassificationResult).category === 'SAFE' ? 'Location extraction' :
@@ -431,6 +438,7 @@ function App() {
               <p><strong>Extracted Value:</strong> "{(result as ExtractionResult).extractedValue}"</p>
               <p><strong>Information Type:</strong> {(result as ExtractionResult).informationType}</p>
               <p><strong>Confidence:</strong> {Math.round((result as ExtractionResult).confidence * 100)}%</p>
+              <p><strong>Method:</strong> {(result as ExtractionResult).extractionMethod || 'Direct extraction'}</p>
               <p style={{ marginTop: '10px', color: '#666' }}>
                 <em>Next: Stress assessment</em>
               </p>
