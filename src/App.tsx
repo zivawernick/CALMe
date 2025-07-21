@@ -4,6 +4,19 @@ import viteLogo from '/vite.svg'
 import './App.css'
 import BreathingApp from './breathing_module/BreathingApp'
 
+import ProfileIntro from './components/ProfileIntro'
+
+// Define user profile type
+interface UserProfile {
+  name: string
+  age: number
+  primaryConcerns: string[]
+  gender: string
+  language: 'hebrew' | 'arabic' | 'english'
+  preferredSessionLength: number
+  accessibilityPreferences: string[]
+}
+
 function App() {
   const [count, setCount] = useState(0)
 
