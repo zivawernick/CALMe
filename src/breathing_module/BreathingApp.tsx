@@ -156,7 +156,7 @@ export default function App() {
       <div className="mt-6 flex justify-center">
             <button 
                 onClick={restartAnimation}
-                className="px-6 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg shadow-md transition-all duration-200 transform hover:scale-105"
+                className="px-6 py-2 bg-sky-600 hover:bg-sky-700 text-black font-bold rounded-lg shadow-md transition-all duration-200 transform hover:scale-105"
             >
                 Repeat Breathing Excersize
             </button>
