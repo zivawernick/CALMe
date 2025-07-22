@@ -212,17 +212,23 @@ function App() {
 
   return (
     <>
-      <div className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border relative">
+      <div 
+      // className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border relative"
+      className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border" // new
+      >
       {/* Fixed Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
+      <header 
+      // className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
+      className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" // new
+      >
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src="/api/placeholder/40/40" />
             <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-sm font-medium">CALMe</h1>
-            <p className="text-xs text-muted-foreground">Ready to help</p>
+            <h1 className="text-xl font-large">CALMe</h1>
+            {/* <p className="text-xs text-muted-foreground">Ready to help</p> */}
           </div>
         </div>
         
@@ -240,8 +246,11 @@ function App() {
       </header>
 
       {/* Scrollable Chat Messages Area */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-2">
-        <div className="space-y-4 pb-4">
+      <ScrollArea ref={scrollAreaRef} 
+      // className="flex-1 px-4 py-2"
+      className="flex-1 overflow-y-auto px-4" // new
+      >
+        <div className="space-y-4 pb-4 mt-2">
           {messages.map((message) => (
             <ChatMessage
               key={message.id}
@@ -260,7 +269,10 @@ function App() {
       </ScrollArea>
 
       {/* Fixed Footer - Chat Input */}
-      <div className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
+      <div 
+      // className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
+      className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
+      >
         <ChatInput
           onSendMessage={handleSendMessage}
           onVoiceInput={handleVoiceInput}
@@ -268,10 +280,6 @@ function App() {
         />
       </div>
     </div>
-      {/* <BreathingApp />
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p> */}
     </>
   )
 }
