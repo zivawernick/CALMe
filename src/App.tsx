@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
-// import BreathingApp from './breathing_module/BreathingApp'
 import { ChatMessage } from "./chat_interface/ChatMessage";
 import { ChatInput } from "./chat_interface/ChatInput";
 import { ScrollArea } from "./chat_interface/ui/scroll-area";
@@ -11,6 +10,9 @@ import { toast } from "sonner"; // pop up notifications
 import './styles/globals.css';
 import BreathingExercise from './breathing_module/BreathingExercise';
 import { classifySafety, classifyStress, extractLocation } from './nlp/semanticParser';
+import { AppsContext, AppsProvider, InnerApps } from './appsContextApi';
+// import { Theme, ThemePanel } from "@radix-ui/themes";
+// import {AppsConsumer} from './appsContextApi'
 
 
 // Parser interface
@@ -68,7 +70,7 @@ interface Message {
   content: string;
   timestamp: string;
   isUser: boolean;
-  apps?: App[];
+  appsTypes?: 'activities' | 'games';
   audioDuration?: number;
 }
 
@@ -185,9 +187,12 @@ function App() {
   const [userInput, setUserInput] = useState('');
   const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
   const [conversationHistory, setConversationHistory] = useState<Array<{step: ConversationStep, result: any}>>([]);
-  const [showBreathing, setShowBreathing] = useState(false);
-  const [shouldAutoLaunchBreathing, setShouldAutoLaunchBreathing] = useState(false);
-  const [breathingTimeout, setBreathingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showAppsLauncher, setShowAppsLauncher] = useState(false);
+  const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
+  const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
+  // const [showBreathing, setShowBreathing] = useState(false);
+  // const [shouldAutoLaunchBreathing, setShouldAutoLaunchBreathing] = useState(false);
+  // const [breathingTimeout, setBreathingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const handleSubmit = () => {
     // TODO: merged with handle message
@@ -236,15 +241,15 @@ function App() {
       // Check if user is highly stressed and trigger breathing exercise
       const stressResult = stepResult as ClassificationResult;
       if (stressResult.category === 'HIGH_STRESS') {
-        setShouldAutoLaunchBreathing(true);
+        setShouldAutoLaunchApp(true);
         console.log('High stress detected, setting breathing timer...');
         // Launch breathing exercise immediately
         const timer = setTimeout(() => {
           console.log('Breathing timer fired, launching exercise...');
-          setShowBreathing(true);
-          console.log('setShowBreathing(true) called');
+          setShowAppsLauncher(true);
+          console.log('setShowAppsLauncher(true) called');
         }, 1500);
-        setBreathingTimeout(timer);
+        setAppsTimeout(timer);
       }
       
       setCurrentStep('complete');
@@ -266,44 +271,44 @@ function App() {
 
   const resetConversation = () => {
     // Clear any pending breathing timer
-    if (breathingTimeout) {
-      clearTimeout(breathingTimeout);
-      setBreathingTimeout(null);
+    if (appsTimeout) {
+      clearTimeout(appsTimeout);
+      setAppsTimeout(null);
     }
     setCurrentStep('safety');
     setUserInput('');
     setResult(null);
     setConversationHistory([]);
-    setShouldAutoLaunchBreathing(false);
+    setShouldAutoLaunchApp(false);
   };
 
-  const launchBreathing = () => {
-    setShowBreathing(true);
+  const launchInnerApps = () => {
+    setShowAppsLauncher(true);
   };
 
-  const closeBreathing = () => {
+  const closeAppLauncher = () => {
     // Clear any pending breathing timer
-    if (breathingTimeout) {
-      clearTimeout(breathingTimeout);
-      setBreathingTimeout(null);
+    if (appsTimeout) {
+      clearTimeout(appsTimeout);
+      setAppsTimeout(null);
     }
-    setShowBreathing(false);
-    setShouldAutoLaunchBreathing(false);
+    setShowAppsLauncher(false);
+    setShouldAutoLaunchApp(false);
   };
 
   // Cleanup breathing timer on component unmount
   useEffect(() => {
     return () => {
-      if (breathingTimeout) {
-        clearTimeout(breathingTimeout);
+      if (appsTimeout) {
+        clearTimeout(appsTimeout);
       }
     };
-  }, [breathingTimeout]);
+  }, [appsTimeout]);
 
-  // Debug showBreathing state changes
+  // Debug showAppsLauncher state changes
   useEffect(() => {
-    console.log('showBreathing state changed to:', showBreathing);
-  }, [showBreathing]);
+    console.log('showAppsLauncher state changed to:', showAppsLauncher);
+  }, [showAppsLauncher]);
 
 
 
@@ -311,6 +316,8 @@ function App() {
 
 
   const [messages, setMessages] = useState<Message[]>([
+    // These are all messages in the chat
+    // TODO: change content to be defined be the user ingut or parser's result
       {
       id: '1',
       type: 'message',
@@ -332,10 +339,7 @@ function App() {
       content: 'Here are some great relaxation activities:',
       timestamp: new Date(Date.now() - 150000).toISOString(),
       isUser: false,
-      apps: [ // TODO: change into <BreathingChatButton/>
-        { type: 'breathing', label: 'Breathing' },
-        { type: 'stretching', label: 'Stretching' },
-      ],
+      appsTypes: 'activities',
     },
     {
       id: '4',
@@ -350,12 +354,7 @@ function App() {
       content: 'Perfect! Here are some entertaining games:',
       timestamp: new Date(Date.now() - 90000).toISOString(),
       isUser: false,
-      apps: [
-        { type: 'matching-cards', label: 'Memory Cards' },
-        { type: 'sudoku', label: 'Sudoku' },
-        { type: 'puzzle', label: 'Puzzle' },
-        { type: 'paint', label: 'Paint' },
-      ],
+      appsTypes: 'games',
     },
     {
       id: '6',
@@ -398,27 +397,18 @@ function App() {
     
     // Simulate AI response with activity/game suggestions
     setTimeout(() => {
-      const activityApps = [
-        { type: 'breathing' as const, label: 'Breathing' },
-        { type: 'stretching' as const, label: 'Stretching' },
-      ];
-      
-      const gameApps = [
-        { type: 'matching-cards' as const, label: 'Memory Cards' },
-        { type: 'sudoku' as const, label: 'Sudoku' },
-        { type: 'puzzle' as const, label: 'Puzzle' },
-        { type: 'paint' as const, label: 'Paint' },
-      ];
       
       // Randomly suggest either activities or games, never both
+      // TODO: remove suggestionTypes
       const suggestionTypes = [
-        { apps: activityApps, message: 'Try some wellness activities:' },
-        { apps: gameApps, message: 'How about some fun games:' },
-      ];
+        { apps: 'activities', message: 'Try some wellness activities:' },
+        { apps: 'games', message: 'How about some fun games:' },
+      ] as const;
       
       // TODO: Not Random, AI desicion
       const randomSuggestion = suggestionTypes[Math.floor(Math.random() * suggestionTypes.length)];
       
+      // TODO: replace with a response builder
       const responses: Message[] = [
         {
           id: (Date.now() + 1).toString(),
@@ -433,7 +423,7 @@ function App() {
           content: randomSuggestion.message,
           timestamp: new Date().toISOString(),
           isUser: false,
-          apps: randomSuggestion.apps, // TODO : redefine
+          appsTypes: randomSuggestion.apps, // TODO : redefine
         },
       ];
       
@@ -503,165 +493,166 @@ function App() {
   }
   return (
     <>
-      <div 
-      // className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border relative"
-      className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border" // new
-      >
-      {/* Fixed Header */}
-      <header 
-      // className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
-      className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" // new
-      >
-        <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src="/api/placeholder/40/40" />
-            <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-xl font-large">CALMe</h1>
-            {/* <p className="text-xs text-muted-foreground">Ready to help</p> */}
+      {/* <Theme accentColor="crimson" grayColor="sand" radius="large" scaling="95%"> */}
+      <AppsProvider value={InnerApps}>
+        <div 
+        className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border" // new
+        >
+        {/* Fixed Header */}
+        <header 
+        className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" // new
+        >
+          <div className="flex items-center gap-3">
+            <Avatar className="w-10 h-10">
+              <AvatarImage src="/api/placeholder/40/40" />
+              <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
+            </Avatar>
+            <div>
+              <h1 className="text-xl font-large">CALMe</h1>
+              {/* <p className="text-xs text-muted-foreground">Ready to help</p> */}
+            </div>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-8 w-8" onClick={handleAccessibility}>
-            <Accessibility className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8" onClick={handleSettings}>
-            <Settings className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8">
-            <MoreVertical className="w-4 h-4" />
-          </Button>
-        </div>
-      </header>
-
-      {/* Scrollable Chat Messages Area */}
-      <ScrollArea ref={scrollAreaRef} 
-      // className="flex-1 px-4 py-2"
-      className="flex-1 overflow-y-auto px-4" // new
-      >
-        <div className="space-y-4 pb-4 mt-2">
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              id={message.id}
-              type={message.type}
-              content={message.content}
-              timestamp={message.timestamp}
-              isUser={message.isUser}
-              apps={message.apps}
-              audioDuration={message.audioDuration}
-              onAppLaunch={handleAppLaunch}
-              onAudioPlay={handleAudioPlay}
-            />
-          ))}
-          {/* 
-          // Josh's Summary to implement
-          <div style={{ padding: '20px', backgroundColor: '#e8f5e8', borderRadius: '8px', marginBottom: '20px' }}>
-          <h3>Conversation Summary</h3>
-          {conversationHistory.map((entry, index) => (
-            <div key={index} style={{ marginBottom: '10px' }}>
-              <strong>{entry.step.toUpperCase()}:</strong> 
-              {entry.result.type === 'classification' 
-                ? ` ${entry.result.category} (${Math.round(entry.result.confidence * 100)}% confidence)`
-                : ` "${entry.result.extractedValue}" (${Math.round(entry.result.confidence * 100)}% confidence)`
-              }
-            </div>
-          ))}
-        </div>
-        
-        //AI appropriate pic of question to insert to {reply object}
-        TODO: collect answer to message object
-            {currentQuestionData.question}
-
-        // Breating button
-        TODO: insert to relevant element
-            🫁 Breathing Exercise
-        
-        // Parsing Success assessment output
-            {result && (
-        <div style={{ 
-          marginTop: '20px', 
-          padding: '20px', 
-          backgroundColor: '#f8f9fa', 
-          border: '1px solid #ddd', 
-          borderRadius: '8px' 
-        }}>
-          <h3>Parsing Result</h3>
           
-          {result.type === 'classification' && (
-            <div>
-              <p><strong>Category:</strong> {(result as ClassificationResult).category}</p>
-              <p><strong>Confidence:</strong> {Math.round((result as ClassificationResult).confidence * 100)}%</p>
-              <p><strong>Analysis:</strong> {(result as ClassificationResult).reasoning || 'Semantic analysis complete'}</p>
-              <p style={{ marginTop: '10px', color: '#666' }}>
-                <em>Next: {
-                  currentStep === 'safety' && (result as ClassificationResult).category === 'SAFE' ? 'Location extraction' :
-                  currentStep === 'safety' && (result as ClassificationResult).category === 'DANGER' ? 'Emergency protocol' :
-                  currentStep === 'safety' ? 'Location extraction' :
-                  currentStep === 'location' ? 'Stress assessment' :
-                  currentStep === 'stress' && (result as ClassificationResult).category === 'HIGH_STRESS' ? 'Breathing exercise will launch' :
-                  'Conversation complete'
-                }</em>
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-8 w-8" onClick={handleAccessibility}>
+              <Accessibility className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8" onClick={handleSettings}>
+              <Settings className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </div>
+        </header>
+
+        {/* Scrollable Chat Messages Area */}
+        <ScrollArea ref={scrollAreaRef} 
+        // className="flex-1 px-4 py-2"
+        className="flex-1 overflow-y-auto px-4" // new
+        >
+          <div className="space-y-4 pb-4 mt-2">
+            {messages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                id={message.id}
+                type={message.type}
+                content={message.content}
+                timestamp={message.timestamp}
+                isUser={message.isUser}
+                appsTypes={message.appsTypes}
+                audioDuration={message.audioDuration}
+                onAppLaunch={handleAppLaunch}
+                onAudioPlay={handleAudioPlay}
+              />
+            ))}
+            {/* 
+            // Josh's Summary to implement
+            <div style={{ padding: '20px', backgroundColor: '#e8f5e8', borderRadius: '8px', marginBottom: '20px' }}>
+            <h3>Conversation Summary</h3>
+            {conversationHistory.map((entry, index) => (
+              <div key={index} style={{ marginBottom: '10px' }}>
+                <strong>{entry.step.toUpperCase()}:</strong> 
+                {entry.result.type === 'classification' 
+                  ? ` ${entry.result.category} (${Math.round(entry.result.confidence * 100)}% confidence)`
+                  : ` "${entry.result.extractedValue}" (${Math.round(entry.result.confidence * 100)}% confidence)`
+                }
+              </div>
+            ))}
+          </div>
           
-          {result.type === 'extraction' && (
-            <div>
-              <p><strong>Extracted Value:</strong> "{(result as ExtractionResult).extractedValue}"</p>
-              <p><strong>Information Type:</strong> {(result as ExtractionResult).informationType}</p>
-              <p><strong>Confidence:</strong> {Math.round((result as ExtractionResult).confidence * 100)}%</p>
-              <p><strong>Method:</strong> {(result as ExtractionResult).extractionMethod || 'Direct extraction'}</p>
-              <p style={{ marginTop: '10px', color: '#666' }}>
-                <em>Next: Stress assessment</em>
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+          //AI appropriate pic of question to insert to {reply object}
+          TODO: collect answer to message object
+              {currentQuestionData.question}
 
-
-        */}
-        </div>
-        {/* Breathing Exercise Overlay */}
-        {/* TODO: make sure chat button is connected to this onClick */}
-      
-      
-      {showBreathing && (
-        <BreathingExercise 
-          onClose={closeBreathing}
-          onComplete={closeBreathing}
-        />
-      )}
-      </ScrollArea>
-       {/*shouldAutoLaunchBreathing && (
+          // Breating button
+          TODO: insert to relevant element
+              🫁 Breathing Exercise
+          
+          // Parsing Success assessment output
+              {result && (
           <div style={{ 
             marginTop: '20px', 
-            padding: '15px', 
-            backgroundColor: '#fef3c7', 
-            border: '1px solid #f59e0b',
-            borderRadius: '8px',
-            color: '#92400e'
+            padding: '20px', 
+            backgroundColor: '#f8f9fa', 
+            border: '1px solid #ddd', 
+            borderRadius: '8px' 
           }}>
-            <strong>High stress detected.</strong> A breathing exercise will launch automatically to help you calm down.
+            <h3>Parsing Result</h3>
+            
+            {result.type === 'classification' && (
+              <div>
+                <p><strong>Category:</strong> {(result as ClassificationResult).category}</p>
+                <p><strong>Confidence:</strong> {Math.round((result as ClassificationResult).confidence * 100)}%</p>
+                <p><strong>Analysis:</strong> {(result as ClassificationResult).reasoning || 'Semantic analysis complete'}</p>
+                <p style={{ marginTop: '10px', color: '#666' }}>
+                  <em>Next: {
+                    currentStep === 'safety' && (result as ClassificationResult).category === 'SAFE' ? 'Location extraction' :
+                    currentStep === 'safety' && (result as ClassificationResult).category === 'DANGER' ? 'Emergency protocol' :
+                    currentStep === 'safety' ? 'Location extraction' :
+                    currentStep === 'location' ? 'Stress assessment' :
+                    currentStep === 'stress' && (result as ClassificationResult).category === 'HIGH_STRESS' ? 'Breathing exercise will launch' :
+                    'Conversation complete'
+                  }</em>
+                </p>
+              </div>
+            )}
+            
+            {result.type === 'extraction' && (
+              <div>
+                <p><strong>Extracted Value:</strong> "{(result as ExtractionResult).extractedValue}"</p>
+                <p><strong>Information Type:</strong> {(result as ExtractionResult).informationType}</p>
+                <p><strong>Confidence:</strong> {Math.round((result as ExtractionResult).confidence * 100)}%</p>
+                <p><strong>Method:</strong> {(result as ExtractionResult).extractionMethod || 'Direct extraction'}</p>
+                <p style={{ marginTop: '10px', color: '#666' }}>
+                  <em>Next: Stress assessment</em>
+                </p>
+              </div>
+            )}
           </div>
-        )*/}
-      {/* Fixed Footer - Chat Input */}
-      <div 
-      // className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
-      className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
-      >
-        <ChatInput
-        // TODO: make sure all submits are handles via one handler
-          onSendMessage={handleSendMessage}
-          onVoiceInput={handleVoiceInput}
-          // onAddAttachment={handleAddAttachment}
-        />
-      </div>
-    </div>
+        )}
 
+
+          */}
+          </div>
+          {/* Breathing Exercise Overlay */}
+          {/* TODO: make sure chat button is connected to this onClick */}
+        
+        
+        {showAppsLauncher && (
+          <BreathingExercise 
+            // onClose={closeBreathing}
+            // onComplete={closeBreathing}
+          />
+        )}
+        </ScrollArea>
+        {/*shouldAutoLaunchBreathing && (
+            <div style={{ 
+              marginTop: '20px', 
+              padding: '15px', 
+              backgroundColor: '#fef3c7', 
+              border: '1px solid #f59e0b',
+              borderRadius: '8px',
+              color: '#92400e'
+            }}>
+              <strong>High stress detected.</strong> A breathing exercise will launch automatically to help you calm down.
+            </div>
+          )*/}
+        {/* Fixed Footer - Chat Input */}
+        <div 
+        // className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
+        className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
+        >
+          <ChatInput
+          // TODO: make sure all submits are handles via one handler
+            onSendMessage={handleSendMessage}
+            onVoiceInput={handleVoiceInput}
+            // onAddAttachment={handleAddAttachment}
+          />
+        </div>
+        </div>
+        </AppsProvider>
+      {/* </Theme> */}
     </>
   )
 }

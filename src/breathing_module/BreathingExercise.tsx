@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import BreathingCircle from './BreathingCircle';
 
-interface BreathingExerciseProps {
-  onClose: () => void;
-  onComplete?: () => void;
-}
+// interface BreathingExerciseProps {
+//   onClose: () => void;
+//   onComplete?: () => void;
+// }
 
 const DEFAULT_TIMINGS = [4000, 7000, 8000]; // 4-7-8 breathing technique
 const DEFAULT_REPEAT = 4;
 
-export default function BreathingExercise({ onClose, onComplete }: BreathingExerciseProps) {
+// export default function BreathingExercise({ onClose, onComplete }: BreathingExerciseProps) {
+export default function BreathingExercise() {
   const [timings] = useState(DEFAULT_TIMINGS);
   const [repeatCount] = useState(DEFAULT_REPEAT);
   const [key, setKey] = useState(Date.now());
@@ -22,9 +23,9 @@ export default function BreathingExercise({ onClose, onComplete }: BreathingExer
 
   const handleComplete = () => {
     setIsActive(false);
-    if (onComplete) {
-      onComplete();
-    }
+    // if (onComplete) {
+    //   onComplete();
+    // }
   };
 
   return (
@@ -51,7 +52,7 @@ export default function BreathingExercise({ onClose, onComplete }: BreathingExer
       }}>
         <div style={{ marginBottom: '20px' }}>
           <button
-            onClick={onClose}
+            // onClick={onClose}
             style={{
               position: 'absolute',
               top: '20px',
