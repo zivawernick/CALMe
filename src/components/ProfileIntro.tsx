@@ -1,4 +1,11 @@
 // src/components/ProfileIntro.tsx
+//guided user profile questions to parse information to save
+//what should I call you? or what is your name?
+//what are your preferred pronouns?
+//where is your closest safe space? - stairway, public miklat, private mamad
+//what is your preferred language? - hebrew, arabic, english
+//what are your accessibility needs? - large text, high contrast, screen reader
+
 
 import React from 'react';
 
@@ -9,7 +16,6 @@ interface UserProfile {
   primaryConcerns: string[];
   gender: string;
   language: 'hebrew' | 'arabic' | 'english';
-  preferredSessionLength: number;
   accessibilityPreferences: string[];
 }
 
