@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type JSXElementConstructor, type ReactElement } from 'react'
 import './App.css'
 import { ChatMessage } from "./chat_interface/ChatMessage";
 import { ChatInput } from "./chat_interface/ChatInput";
@@ -8,9 +8,10 @@ import { Button } from "./chat_interface/ui/button";
 import { MoreVertical, Settings, Accessibility } from "lucide-react"; // Icon TODO - CHANGE
 import { toast } from "sonner"; // pop up notifications
 import './styles/globals.css';
-import BreathingExercise from './breathing_module/BreathingExercise';
+// import BreathingExercise from './breathing_module/BreathingExercise';
 import { classifySafety, classifyStress, extractLocation } from './nlp/semanticParser';
-import { AppsContext, AppsProvider, InnerApps } from './appsContextApi';
+import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsContextApi';
+import AppLauncer from './AppLauncher/AppLauncer';
 // import { Theme, ThemePanel } from "@radix-ui/themes";
 // import {AppsConsumer} from './appsContextApi'
 
@@ -59,10 +60,10 @@ interface ExtractionResult {
 
 // Chat Interface
 
-interface App {
-  type: 'breathing' | 'stretching' | 'matching-cards' | 'sudoku' | 'puzzle' | 'paint';
-  label: string;
-}
+// interface App {
+//   type: 'breathing' | 'stretching' | 'matching-cards' | 'sudoku' | 'puzzle' | 'paint';
+//   label: string;
+// }
 
 interface Message {
   id: string;
@@ -189,13 +190,12 @@ function App() {
   const [conversationHistory, setConversationHistory] = useState<Array<{step: ConversationStep, result: any}>>([]);
   const [showAppsLauncher, setShowAppsLauncher] = useState(false);
   const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
+  const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
   const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
-  // const [showBreathing, setShowBreathing] = useState(false);
-  // const [shouldAutoLaunchBreathing, setShouldAutoLaunchBreathing] = useState(false);
-  // const [breathingTimeout, setBreathingTimeout] = useState<NodeJS.Timeout | null>(null);
+  
 
   const handleSubmit = () => {
-    // TODO: merged with handle message
+    // TODO: merged with handleSendMessage
     if (!userInput.trim()) return;
     
     let stepResult: ClassificationResult | ExtractionResult;
@@ -282,9 +282,11 @@ function App() {
     setShouldAutoLaunchApp(false);
   };
 
-  const launchInnerApps = () => {
-    setShowAppsLauncher(true);
-  };
+  // const launchInnerApps = () => {
+  //   // TODO: Replace with handleAppLaunch
+  //   setShowAppsLauncher(true);
+
+  // };
 
   const closeAppLauncher = () => {
     // Clear any pending breathing timer
@@ -435,23 +437,16 @@ function App() {
     }, 1000);
   };
 
-  const handleAppLaunch = (appType: string) => {
+  const handleAppLaunch = (appToLaunch: AppInterface | undefined) => {
+    if (!appToLaunch) {
+      console.log('No app to launch');
+      return;
+    }
     // TODO: define the parser here
-    const activityMessages = {
-      breathing: 'Starting guided breathing session...',
-      stretching: 'Time for some gentle stretches!',
-      'matching-cards': 'Let\'s test your memory!',
-      sudoku: 'Time to challenge your mind!',
-      puzzle: 'Let\'s solve some puzzles!',
-      paint: 'Get creative with colors!',
-    };
-    
-    toast.success(`${activityMessages[appType as keyof typeof activityMessages]}`, {
-      description: `Launching ${appType} activity for you.`,
-    });
-    
+    setChosenApp(appToLaunch)
+    setShowAppsLauncher(true);
     // Simulate app launch
-    console.log(`Launching activity: ${appType}`);
+    console.log(`Launching activity: ${appToLaunch.name}`);
   };
 
   const handleAudioPlay = (messageId: string) => {
@@ -500,7 +495,7 @@ function App() {
         >
         {/* Fixed Header */}
         <header 
-        className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" // new
+        className="flex-shrink-0 flex z-1000 items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" // new
         >
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
@@ -527,6 +522,7 @@ function App() {
         </header>
 
         {/* Scrollable Chat Messages Area */}
+        {!showAppsLauncher &&
         <ScrollArea ref={scrollAreaRef} 
         // className="flex-1 px-4 py-2"
         className="flex-1 overflow-y-auto px-4" // new
@@ -542,7 +538,7 @@ function App() {
                 isUser={message.isUser}
                 appsTypes={message.appsTypes}
                 audioDuration={message.audioDuration}
-                onAppLaunch={handleAppLaunch}
+                onAppLaunch={handleAppLaunch} // to activate button
                 onAudioPlay={handleAudioPlay}
               />
             ))}
@@ -615,18 +611,18 @@ function App() {
 
           */}
           </div>
-          {/* Breathing Exercise Overlay */}
-          {/* TODO: make sure chat button is connected to this onClick */}
         
-        
-        {showAppsLauncher && (
-          <BreathingExercise 
-            // onClose={closeBreathing}
-            // onComplete={closeBreathing}
-          />
-        )}
         </ScrollArea>
-        {/*shouldAutoLaunchBreathing && (
+        }
+        {showAppsLauncher && (
+          // Change To AppLauncher
+        <AppLauncer chosenApp={chosenApp} onClose={closeAppLauncher} />
+          // <BreathingExercise 
+          //   onClose={closeBreathing}
+          //   onComplete={closeBreathing}
+          // />
+        )}
+        {shouldAutoLaunchApp && (
             <div style={{ 
               marginTop: '20px', 
               padding: '15px', 
@@ -637,15 +633,15 @@ function App() {
             }}>
               <strong>High stress detected.</strong> A breathing exercise will launch automatically to help you calm down.
             </div>
-          )*/}
+          )}
         {/* Fixed Footer - Chat Input */}
         <div 
-        // className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80"
-        className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
+        className="flex-shrink-0 fixed z-1000 bottom-0 left-0 border-t  bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
         >
           <ChatInput
           // TODO: make sure all submits are handles via one handler
             onSendMessage={handleSendMessage}
+            // onSendMessage={handleSubmit}
             onVoiceInput={handleVoiceInput}
             // onAddAttachment={handleAddAttachment}
           />

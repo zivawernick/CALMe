@@ -1,9 +1,9 @@
-import React, { createContext, useContext, type ReactElement, type PropsWithChildren, type FunctionComponent } from 'react';
+import { createContext, type ReactElement } from 'react';
 import BreathingExercise from './breathing_module/BreathingExercise';
 
 // Define the App interface as provided by the user
 // Using a union type for 'name' for strict type checking
-export interface App {
+export interface AppInterface {
   name: 'breathing' | 'stretching' | 'matching-cards' | 'sudoku' | 'puzzle' | 'paint';
   type: 'activities' | 'games';
   label: string;
@@ -18,7 +18,7 @@ export interface App {
 //   apps: App[];
 // }
 
-export const InnerApps: App[] = [
+export const InnerApps: AppInterface[] = [
     {
       name: 'breathing',
       type: 'activities',
@@ -26,19 +26,12 @@ export const InnerApps: App[] = [
       icon: (
 
         // Example SVG icon for breathing (heart/lung related)
-        <div>🫁</div>
+        <div>🫁</div> // TODO: change into SVG icon (better than below)
         // <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         //   <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
         // </svg>
       ),
-      // Placeholder for the actual BreathingCircle component from your previous example
-      main: `${<BreathingExercise />}`,
-      //  (
-      //   <div className="text-center p-6 bg-gray-600 rounded-lg text-white">
-      //     <p className="text-xl font-bold mb-2">Breathing Exercise App</p>
-      //     <p>This is where your interactive breathing circle component would be rendered.</p>
-      //   </div>
-      // ),
+      main: <BreathingExercise />,
       description: 'A guided breathing exercise to help you relax and focus.',
     },
     {
@@ -137,7 +130,7 @@ export const InnerApps: App[] = [
   ];
 
 // Create the context with a default undefined value.
-export const AppsContext = createContext<App[] | undefined>(undefined);
+export const AppsContext = createContext<AppInterface[] | undefined>(undefined);
 
 
 export const AppsProvider  = AppsContext.Provider
