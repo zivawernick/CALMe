@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "./chat_interface/ui/avatar"
 import { Button } from "./chat_interface/ui/button";
 import { MoreVertical, Settings, Accessibility } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import './styles/globals.css';
 import { classifySafety, classifyStress, extractLocation } from './parser/semanticParser';
 import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsContextApi';
 import AppLauncer from './AppLauncher/AppLauncer';
