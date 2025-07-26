@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type JSXElementConstructor, type ReactElement } from 'react'
+import { useState, useEffect, useRef, type JSXElementConstructor, type ReactElement, useContext } from 'react'
 import './App.css'
 import { ChatMessage } from "./chat_interface/ChatMessage";
 import { ChatInput } from "./chat_interface/ChatInput";
@@ -8,12 +8,10 @@ import { Button } from "./chat_interface/ui/button";
 import { MoreVertical, Settings, Accessibility } from "lucide-react"; // Icon TODO - CHANGE
 import { toast } from "sonner"; // pop up notifications
 import './styles/globals.css';
-// import BreathingExercise from './breathing_module/BreathingExercise';
 import { classifySafety, classifyStress, extractLocation } from './nlp/semanticParser';
 import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsContextApi';
 import AppLauncer from './AppLauncher/AppLauncer';
 // import { Theme, ThemePanel } from "@radix-ui/themes";
-// import {AppsConsumer} from './appsContextApi'
 
 
 // Parser interface
@@ -59,20 +57,17 @@ interface ExtractionResult {
 
 
 // Chat Interface
-
-// interface App {
-//   type: 'breathing' | 'stretching' | 'matching-cards' | 'sudoku' | 'puzzle' | 'paint';
-//   label: string;
-// }
-
 interface Message {
   id: string;
   type: 'message' | 'app-buttons' | 'audio';
-  content: string;
+  // content: string; // is this result?
+  content: ClassificationResult | ExtractionResult | string | null,
   timestamp: string;
   isUser: boolean;
   appsTypes?: 'activities' | 'games';
   audioDuration?: number;
+  step: ConversationStep;
+  result: ClassificationResult| ExtractionResult | null; //any
 }
 
 // Parser Classifications
@@ -187,137 +182,21 @@ function App() {
   const [currentStep, setCurrentStep] = useState<ConversationStep>('safety');
   const [userInput, setUserInput] = useState('');
   const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
-  const [conversationHistory, setConversationHistory] = useState<Array<{step: ConversationStep, result: any}>>([]);
+  const [conversationHistory, setConversationHistory] = useState<Message[]>([{
+      id: Date.now().toString(),
+      type: 'message',
+      content: "Hello User! I'm here with you, How are you feeling right now?",
+      timestamp: new Date().toISOString(),
+      isUser: false,
+      step: currentStep, 
+      result: null,
+      }]); 
   const [showAppsLauncher, setShowAppsLauncher] = useState(false);
   const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
   const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
   const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
-  
-
-  const handleSubmit = () => {
-    // TODO: merged with handleSendMessage
-    if (!userInput.trim()) return;
-    
-    let stepResult: ClassificationResult | ExtractionResult;
-    
-    if (currentStep === 'safety') {
-      stepResult = classifyTextSemantic(userInput, SAFETY_ASSESSMENT);
-      setResult(stepResult);
-      
-      // Update conversation history
-      const newHistory = [...conversationHistory, {step: currentStep, result: stepResult}];
-      setConversationHistory(newHistory);
-      
-      // Determine next step based on safety result
-      const safetyResult = stepResult as ClassificationResult;
-      if (safetyResult.category === 'SAFE') {
-        setCurrentStep('location');
-      } else if (safetyResult.category === 'DANGER') {
-        setCurrentStep('complete'); // In real app, would trigger emergency protocol
-      } else {
-        // UNSURE - could ask clarification or proceed to location
-        setCurrentStep('location');
-      }
-      
-    } else if (currentStep === 'location') {
-      stepResult = extractInformationSemantic(userInput, LOCATION_EXTRACTION);
-      setResult(stepResult);
-      
-      // Update conversation history
-      const newHistory = [...conversationHistory, {step: currentStep, result: stepResult}];
-      setConversationHistory(newHistory);
-      
-      // Move to stress assessment
-      setCurrentStep('stress');
-      
-    } else if (currentStep === 'stress') {
-      stepResult = classifyTextSemantic(userInput, STRESS_ASSESSMENT);
-      setResult(stepResult);
-      
-      // Update conversation history
-      const newHistory = [...conversationHistory, {step: currentStep, result: stepResult}];
-      setConversationHistory(newHistory);
-      
-      // Check if user is highly stressed and trigger breathing exercise
-      const stressResult = stepResult as ClassificationResult;
-      if (stressResult.category === 'HIGH_STRESS') {
-        setShouldAutoLaunchApp(true);
-        console.log('High stress detected, setting breathing timer...');
-        // Launch breathing exercise immediately
-        const timer = setTimeout(() => {
-          console.log('Breathing timer fired, launching exercise...');
-          setShowAppsLauncher(true);
-          console.log('setShowAppsLauncher(true) called');
-        }, 1500);
-        setAppsTimeout(timer);
-      }
-      
-      setCurrentStep('complete');
-    }
-    
-    // Clear input for next question
-    setUserInput('');
-  };
-    
-
-  const getCurrentQuestion = () => {
-    switch (currentStep) {
-      case 'safety': return SAFETY_ASSESSMENT;
-      case 'location': return LOCATION_EXTRACTION;
-      case 'stress': return STRESS_ASSESSMENT;
-      default: return null;
-    }
-  };
-
-  const resetConversation = () => {
-    // Clear any pending breathing timer
-    if (appsTimeout) {
-      clearTimeout(appsTimeout);
-      setAppsTimeout(null);
-    }
-    setCurrentStep('safety');
-    setUserInput('');
-    setResult(null);
-    setConversationHistory([]);
-    setShouldAutoLaunchApp(false);
-  };
-
-  // const launchInnerApps = () => {
-  //   // TODO: Replace with handleAppLaunch
-  //   setShowAppsLauncher(true);
-
-  // };
-
-  const closeAppLauncher = () => {
-    // Clear any pending breathing timer
-    if (appsTimeout) {
-      clearTimeout(appsTimeout);
-      setAppsTimeout(null);
-    }
-    setShowAppsLauncher(false);
-    setShouldAutoLaunchApp(false);
-  };
-
-  // Cleanup breathing timer on component unmount
-  useEffect(() => {
-    return () => {
-      if (appsTimeout) {
-        clearTimeout(appsTimeout);
-      }
-    };
-  }, [appsTimeout]);
-
-  // Debug showAppsLauncher state changes
-  useEffect(() => {
-    console.log('showAppsLauncher state changed to:', showAppsLauncher);
-  }, [showAppsLauncher]);
-
-
-
-/////////////////////////////////////////
-
-
-  const [messages, setMessages] = useState<Message[]>([
+  // const [messages, setMessages] = useState<Message[]>([]); // THIS will become conversationHistoy
+  /*const [messages, setMessages] = useState<Message[]>([
     // These are all messages in the chat
     // TODO: change content to be defined be the user ingut or parser's result
       {
@@ -372,8 +251,9 @@ function App() {
       timestamp: new Date(Date.now() - 30000).toISOString(),
       isUser: false,
     },
-  ]);
+  ]);*/
 
+  const appsContext = useContext(AppsContext);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -384,9 +264,180 @@ function App() {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages]);
+    if (userInput !== '') {
+      // When the user inputs the parser must act
+      getResult();
+    }
+  // }, [messages]);
+  }, [conversationHistory]);
+  
+  useEffect(() => {
+    console.log(`useEffect started due to change in result and currentStep, \n result is ${result?.type} cerrentStep is ${currentStep}`);
+    if (!result) {
+      return;
+    }
+    // if (currentStep === 'complete') return;
+    const currentQuestionData = getCurrentQuestion();
+    const msgType = (currentStep === 'stress')? 'app-buttons':'message';
+    
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      type: `${msgType}`,//'message',
+      content: `${currentQuestionData?.question}`,
+      timestamp: new Date().toISOString(),
+      isUser: false,
+      step: currentStep, 
+      result: result,
+      };
 
-  const handleSendMessage = (content: string) => {
+      const newHistory = [...conversationHistory, newMessage];
+      setConversationHistory(newHistory); // this should come at end
+
+  }, [result, currentStep]);
+
+  
+
+  const getResult = () => {
+    // This function assesses the stress level and defines a result of Stress Level in %
+    // TODO: combine with text generator from bucket
+    // TODO: Solve High stress immediate breathing app
+    
+    if (!userInput.trim()) return; 
+    
+    let stepResult: ClassificationResult | ExtractionResult;
+    
+    if (currentStep === 'safety') {
+      stepResult = classifyTextSemantic(userInput, SAFETY_ASSESSMENT);
+      setResult(stepResult);
+      
+      // Determine next step based on safety result
+      const safetyResult = stepResult as ClassificationResult;
+      if (safetyResult.category === 'SAFE') {
+        setCurrentStep('location');
+      } else if (safetyResult.category === 'DANGER') {
+        setCurrentStep('complete'); // In real app, would trigger emergency protocol
+      } else {
+        // UNSURE - could ask clarification or proceed to location
+        setCurrentStep('location');
+      }
+      
+    } else if (currentStep === 'location') {
+      stepResult = extractInformationSemantic(userInput, LOCATION_EXTRACTION);
+      setResult(stepResult);
+      
+      // Move to stress assessment
+      setCurrentStep('stress');
+      
+    } else if (currentStep === 'stress') {
+      stepResult = classifyTextSemantic(userInput, STRESS_ASSESSMENT);
+      setResult(stepResult);
+      
+      // Check if user is highly stressed and trigger breathing exercise
+      const stressResult = stepResult as ClassificationResult;
+      if (stressResult.category === 'HIGH_STRESS') {
+        setShouldAutoLaunchApp(true);
+        console.log('High stress detected, setting breathing timer...');
+        // Launch breathing exercise immediately
+        const timer = setTimeout(() => {
+          console.log('Breathing timer fired, launching exercise...');
+          const breathingApp = appsContext?.find((subapps)=>(subapps.name==='breathing'));
+          setChosenApp(breathingApp);
+          setShowAppsLauncher(true);
+          console.log('setShowAppsLauncher(true) called');
+        }, 1500);
+        setAppsTimeout(timer);
+      }
+      setCurrentStep('complete');
+    }
+    console.log(`getResult finnished result is ${result?.type} cerrentStep is ${currentStep}`);
+    // Clear input for next question
+    setUserInput('');
+  };
+  
+  const handleSendMessage = (e:any) => {
+    // This app recieves the e.target.value from the chat input and turns it into a message in the chat area
+    if (!e.trim()) return; 
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      type: 'message',
+      content: e,
+      timestamp: new Date().toISOString(),
+      isUser: true,
+      step: currentStep, 
+      result: null,
+      };
+      // console.log(newMessage);
+    const newHistory = [...conversationHistory, newMessage];
+    setConversationHistory(newHistory); // this should come at end
+    setUserInput(e);
+    
+  };
+
+  const getCurrentQuestion = () => {
+    switch (currentStep) {
+      case 'safety': return SAFETY_ASSESSMENT;
+      case 'location': return LOCATION_EXTRACTION;
+      case 'stress': return STRESS_ASSESSMENT;
+      default: return null;
+    }
+  };
+
+  const resetConversation = () => {
+    // Clear any pending breathing timer
+    if (appsTimeout) {
+      clearTimeout(appsTimeout);
+      setAppsTimeout(null);
+    }
+    setCurrentStep('safety');
+    setUserInput('');
+    setResult(null);
+    setConversationHistory([]);
+    setShouldAutoLaunchApp(false);
+  };
+
+  const closeAppLauncher = () => {
+    // Clear any pending breathing timer
+    if (appsTimeout) {
+      clearTimeout(appsTimeout);
+      setAppsTimeout(null);
+    }
+    setChosenApp(undefined);
+    setShowAppsLauncher(false);
+    setShouldAutoLaunchApp(false);
+  };
+
+  // Cleanup breathing timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (appsTimeout) {
+        clearTimeout(appsTimeout);
+      }
+    };
+  }, [appsTimeout]);
+
+  // Debug showAppsLauncher state changes
+  useEffect(() => {
+    console.log('showAppsLauncher state changed to:', showAppsLauncher);
+  }, [showAppsLauncher]);
+
+  // Debug showAppsLauncher state changes
+  useEffect(() => {
+    if (shouldAutoLaunchApp){
+      console.log('shouldAutoLaunchApp state changed to:', showAppsLauncher);
+      const breathingApp = appsContext?.find((subapps)=>(subapps.name==='breathing'));
+      console.log(breathingApp);
+      setChosenApp(breathingApp);
+      setShowAppsLauncher(true);
+    }
+    
+  }, [shouldAutoLaunchApp]);
+
+
+/////////////////////////////////////////
+
+
+
+ /* const handleSendMessage = (content: string) => {
     const newMessage: Message = {
       id: Date.now().toString(),
       type: 'message',
@@ -435,7 +486,7 @@ function App() {
         }, index * 1000);
       });
     }, 1000);
-  };
+  };*/
 
   const handleAppLaunch = (appToLaunch: AppInterface | undefined) => {
     if (!appToLaunch) {
@@ -482,10 +533,10 @@ function App() {
   const currentQuestionData = getCurrentQuestion();
 
   if (!currentQuestionData) {
-    console.log("this was meant to operate inside apps");
-    // TODO: create switch case statments for inner app upload.
+    // console.log("this was meant to operate inside apps");
+    // TODO: create switch case statments for inner app upload?
     return <></>
-  }
+    }
   return (
     <>
       {/* <Theme accentColor="crimson" grayColor="sand" radius="large" scaling="95%"> */}
@@ -528,7 +579,8 @@ function App() {
         className="flex-1 overflow-y-auto px-4" // new
         >
           <div className="space-y-4 pb-4 mt-2">
-            {messages.map((message) => (
+            {/* {messages.map((message) => (
+              <>
               <ChatMessage
                 key={message.id}
                 id={message.id}
@@ -541,87 +593,104 @@ function App() {
                 onAppLaunch={handleAppLaunch} // to activate button
                 onAudioPlay={handleAudioPlay}
               />
+              
+              </>
+              
+            ))} */}
+            {conversationHistory.map((message, index) => (
+              <>
+              <ChatMessage
+                key={index}
+                id={message.id}
+                type={message.type}
+                content={`${message.content}`}
+                // content={!message.result? `${message.content}` : message.result.type === 'classification' 
+                //     ? ` ${message.result.category} (${Math.round(message.result.confidence * 100)}% confidence)`
+                //     : ` "${message.result.extractedValue}" (${Math.round(message.result.confidence * 100)}% confidence)`}
+                timestamp={message.timestamp}
+                isUser={message.isUser}
+                appsTypes={message.appsTypes}
+                audioDuration={message.audioDuration}
+                onAppLaunch={handleAppLaunch} // to activate button
+                onAudioPlay={handleAudioPlay}
+              />
+              
+              </>
+              
             ))}
-            {/* 
-            // Josh's Summary to implement
-            <div style={{ padding: '20px', backgroundColor: '#e8f5e8', borderRadius: '8px', marginBottom: '20px' }}>
-            <h3>Conversation Summary</h3>
-            {conversationHistory.map((entry, index) => (
-              <div key={index} style={{ marginBottom: '10px' }}>
-                <strong>{entry.step.toUpperCase()}:</strong> 
-                {entry.result.type === 'classification' 
-                  ? ` ${entry.result.category} (${Math.round(entry.result.confidence * 100)}% confidence)`
-                  : ` "${entry.result.extractedValue}" (${Math.round(entry.result.confidence * 100)}% confidence)`
-                }
-              </div>
-            ))}
-          </div>
+             
+            {/* // Josh's Summary to implement */}
+            {/* <div style={{ padding: '20px', backgroundColor: '#e8f5e8', borderRadius: '8px', marginBottom: '20px' }}>
+              <h3>Conversation Summary</h3>
+              {conversationHistory.map((entry, index) => (
+                <div key={index} style={{ marginBottom: '10px' }}>
+                  <strong>{entry.step.toUpperCase()}:</strong> 
+                  {entry.result.type === 'classification' 
+                    ? ` ${entry.result.category} (${Math.round(entry.result.confidence * 100)}% confidence)`
+                    : ` "${entry.result.extractedValue}" (${Math.round(entry.result.confidence * 100)}% confidence)`
+                  }
+                </div>
+              ))}
+            </div> */}
           
-          //AI appropriate pic of question to insert to {reply object}
-          TODO: collect answer to message object
-              {currentQuestionData.question}
+          {/* //AI appropriate pick of question to insert to {reply object}
+          TODO: collect answer to message object */}
+              {/* {currentQuestionData.question} */}
 
-          // Breating button
-          TODO: insert to relevant element
-              🫁 Breathing Exercise
+          {/* // Parsing Success assessment output */}
+               {/* {result && (
+                <div style={{ 
+                  marginTop: '20px', 
+                  padding: '20px', 
+                  backgroundColor: '#f8f9fa', 
+                  border: '1px solid #ddd', 
+                  borderRadius: '8px' 
+                }}>
+                  <h3>Parsing Result</h3>
+                  
+                  {result.type === 'classification' && (
+                    <div>
+                      <p><strong>Category:</strong> {(result as ClassificationResult).category}</p>
+                      <p><strong>Confidence:</strong> {Math.round((result as ClassificationResult).confidence * 100)}%</p>
+                      <p><strong>Analysis:</strong> {(result as ClassificationResult).reasoning || 'Semantic analysis complete'}</p>
+                      <p style={{ marginTop: '10px', color: '#666' }}>
+                        <em>Next: {
+                          currentStep === 'safety' && (result as ClassificationResult).category === 'SAFE' ? 'Location extraction' :
+                          currentStep === 'safety' && (result as ClassificationResult).category === 'DANGER' ? 'Emergency protocol' :
+                          currentStep === 'safety' ? 'Location extraction' :
+                          currentStep === 'location' ? 'Stress assessment' :
+                          currentStep === 'stress' && (result as ClassificationResult).category === 'HIGH_STRESS' ? 'Breathing exercise will launch' :
+                          'Conversation complete'
+                        }</em>
+                      </p>
+                    </div>
+                  )}
+                  
+                  {result.type === 'extraction' && (
+                    <div>
+                      <p><strong>Extracted Value:</strong> "{(result as ExtractionResult).extractedValue}"</p>
+                      <p><strong>Information Type:</strong> {(result as ExtractionResult).informationType}</p>
+                      <p><strong>Confidence:</strong> {Math.round((result as ExtractionResult).confidence * 100)}%</p>
+                      <p><strong>Method:</strong> {(result as ExtractionResult).extractionMethod || 'Direct extraction'}</p>
+                      <p style={{ marginTop: '10px', color: '#666' }}>
+                        <em>Next: Stress assessment</em>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}  */}
+
+
           
-          // Parsing Success assessment output
-              {result && (
-          <div style={{ 
-            marginTop: '20px', 
-            padding: '20px', 
-            backgroundColor: '#f8f9fa', 
-            border: '1px solid #ddd', 
-            borderRadius: '8px' 
-          }}>
-            <h3>Parsing Result</h3>
-            
-            {result.type === 'classification' && (
-              <div>
-                <p><strong>Category:</strong> {(result as ClassificationResult).category}</p>
-                <p><strong>Confidence:</strong> {Math.round((result as ClassificationResult).confidence * 100)}%</p>
-                <p><strong>Analysis:</strong> {(result as ClassificationResult).reasoning || 'Semantic analysis complete'}</p>
-                <p style={{ marginTop: '10px', color: '#666' }}>
-                  <em>Next: {
-                    currentStep === 'safety' && (result as ClassificationResult).category === 'SAFE' ? 'Location extraction' :
-                    currentStep === 'safety' && (result as ClassificationResult).category === 'DANGER' ? 'Emergency protocol' :
-                    currentStep === 'safety' ? 'Location extraction' :
-                    currentStep === 'location' ? 'Stress assessment' :
-                    currentStep === 'stress' && (result as ClassificationResult).category === 'HIGH_STRESS' ? 'Breathing exercise will launch' :
-                    'Conversation complete'
-                  }</em>
-                </p>
-              </div>
-            )}
-            
-            {result.type === 'extraction' && (
-              <div>
-                <p><strong>Extracted Value:</strong> "{(result as ExtractionResult).extractedValue}"</p>
-                <p><strong>Information Type:</strong> {(result as ExtractionResult).informationType}</p>
-                <p><strong>Confidence:</strong> {Math.round((result as ExtractionResult).confidence * 100)}%</p>
-                <p><strong>Method:</strong> {(result as ExtractionResult).extractionMethod || 'Direct extraction'}</p>
-                <p style={{ marginTop: '10px', color: '#666' }}>
-                  <em>Next: Stress assessment</em>
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-
-          */}
           </div>
         
         </ScrollArea>
         }
+        
         {showAppsLauncher && (
-          // Change To AppLauncher
         <AppLauncer chosenApp={chosenApp} onClose={closeAppLauncher} />
-          // <BreathingExercise 
-          //   onClose={closeBreathing}
-          //   onComplete={closeBreathing}
-          // />
         )}
+
         {shouldAutoLaunchApp && (
             <div style={{ 
               marginTop: '20px', 
@@ -636,12 +705,12 @@ function App() {
           )}
         {/* Fixed Footer - Chat Input */}
         <div 
-        className="flex-shrink-0 fixed z-1000 bottom-0 left-0 border-t  bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
+        // className="flex-shrink-0 fixed z-1000 bottom-0 left-0 border-t bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
+        className="fixed z-1000 bottom-0 flex flex-col w-full max-w-md mx-auto bg-background border-t self-center " //
         >
           <ChatInput
           // TODO: make sure all submits are handles via one handler
             onSendMessage={handleSendMessage}
-            // onSendMessage={handleSubmit}
             onVoiceInput={handleVoiceInput}
             // onAddAttachment={handleAddAttachment}
           />
