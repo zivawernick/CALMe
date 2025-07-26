@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useContext } from 'react'
 import './App.css'
-import { ChatMessage } from "./components/ChatMessage";
-import { ChatInput } from "./components/ChatInput";
-import { ScrollArea } from "./components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
-import { Button } from "./components/ui/button";
+import { ChatMessage } from "./chat_interface/ChatMessage";
+import { ChatInput } from "./chat_interface/ChatInput";
+import { ScrollArea } from "./chat_interface/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "./chat_interface/ui/avatar";
+import { Button } from "./chat_interface/ui/button";
 import { MoreVertical, Settings, Accessibility } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import './styles/globals.css';
