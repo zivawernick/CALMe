@@ -76,7 +76,7 @@ export function analyzeText(text: string): SemanticAnalysis {
   
   // Get all custom tags we've identified
   const jsonData = doc.json();
-  const tags = [];
+  const tags: string[] = [];
   jsonData.forEach((sentence: any) => {
     if (sentence.terms) {
       sentence.terms.forEach((term: any) => {
@@ -169,7 +169,7 @@ export function classifyStress(text: string): ClassificationResult {
   
   let stressLevel = 0;
   let confidence = 0.7;
-  let reasoning = [];
+  let reasoning: string[] = [];
   
   console.log('Classifying stress for text:', text);
   console.log('Semantic analysis tags:', analysis.tags);

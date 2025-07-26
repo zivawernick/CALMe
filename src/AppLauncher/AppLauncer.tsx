@@ -37,9 +37,11 @@ export default function AppLauncer ({chosenApp, onClose}: AppLauncherProps) {
           maxHeight: '100%',
         }}
       >
-        {chosenApp? chosenApp.main : ()=>{
-            console.log('Error: No App to Launch, closing AppLauncher')
-            onClose()}}
+        {chosenApp ? chosenApp.main : (
+          <div className="text-white text-center">
+            <p>No app selected</p>
+          </div>
+        )}
 
       </div>
     </div>

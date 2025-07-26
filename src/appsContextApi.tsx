@@ -1,5 +1,6 @@
 import { createContext, type ReactElement } from 'react';
-import BreathingExercise from './breathing_module/BreathingExercise';
+import BreathingExercise from './activities/breathing_module/BreathingExercise';
+import MatchingGame from './activities/MatchingGame';
 
 // Define the App interface as provided by the user
 // Using a union type for 'name' for strict type checking
@@ -71,12 +72,7 @@ export const InnerApps: AppInterface[] = [
     </g>
   </svg>
       ),
-      main: (
-        <div className="text-center p-6 bg-gray-600 rounded-lg text-white">
-          <p className="text-xl font-bold mb-2">Matching Cards Game</p>
-          <p>The game board for matching pairs will be rendered here.</p>
-        </div>
-      ),
+      main: <MatchingGame onGameEnd={() => {}} />,
       description: 'Test your memory and concentration with this classic matching game.',
     },
     {
