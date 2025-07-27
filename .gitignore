@@ -102,3 +102,15 @@ temp/
 
 # Claude Code artifacts (if any)
 .claude/
+
+# Testing artifacts
+test_*.mjs
+test_*.js
+test_*.html
+validate_*.mjs
+*_test.mjs
+*_test.js
+
+# Backup directories
+*_backup/
+backup_*/

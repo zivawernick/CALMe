@@ -2,30 +2,35 @@
 // Implements dynamic conversation flow based on conversation map specification
 
 import { conversationMapV2 } from './conversationMapV2';
+import { therapeuticConversationMap } from './conversationMap';
 import { onboardingConversationMap, onboardingParsers } from './onboardingMap';
 import { userProfileStorage, type UserProfile } from '../storage/userProfileStorage';
 import * as enhancedParser from '../parser/enhancedParser';
 
-// Import types from parser module instead
+// Import types from parser module
 type ClassificationResult = {
   type: 'classification';
-  category: string;
+  category?: string;
   confidence: number;
   reasoning?: string;
+  needsClarification?: boolean;
+  clarificationPrompt?: string;
 };
 
 type ExtractionResult = {
   type: 'extraction';
-  extractedValue: string;
+  extractedValue?: string;
   confidence: number;
-  informationType: string;
+  informationType?: string;
   extractionMethod?: string;
+  needsClarification?: boolean;
+  clarificationPrompt?: string;
 };
 
 export interface ConversationDecisionLogic {
   conditions: Array<{
     if?: string;
-    default?: boolean;
+    default?: string | boolean;
     goto: string;
   }>;
 }

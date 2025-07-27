@@ -9,9 +9,10 @@ const createNode = (
   content: string,
   type: 'question' | 'activity' | 'decision' | 'end' = 'question',
   next?: any,
-  parser?: string
+  parser?: string,
+  activity?: string
 ): [string, ConversationNode] => {
-  return [id, { id, type, content, next, parser }];
+  return [id, { id, type, content, next, parser, activity }];
 };
 
 // Build the onboarding conversation map

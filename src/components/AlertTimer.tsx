@@ -1,4 +1,4 @@
-import React from 'react';
+// Removed unused import
 
 interface AlertTimerProps {
   timeRemaining: number | null;

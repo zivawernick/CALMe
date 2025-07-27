@@ -60,17 +60,17 @@ class EnhancedParser {
   private safetyKeywords: KeywordMapping[] = [
     {
       keywords: ['yes', 'safe', 'protected', 'secure', 'sheltered', 'im good', 'all good'],
-      category: 'safe',
+      category: 'SAFE',
       confidence: 0.9
     },
     {
       keywords: ['no', 'not safe', 'unsafe', 'exposed', 'danger', 'at risk', 'vulnerable'],
-      category: 'unsafe',
+      category: 'DANGER',
       confidence: 0.95
     },
     {
       keywords: ['maybe', 'not sure', 'i think', 'possibly', 'sort of', 'kind of'],
-      category: 'uncertain',
+      category: 'UNSURE',
       confidence: 0.7
     }
   ];
@@ -193,7 +193,7 @@ class EnhancedParser {
       console.log('✅ Parser: Affirmative response detected');
       return {
         type: 'classification',
-        category: 'safe',
+        category: 'SAFE',
         confidence: 0.8,
         reasoning: 'Affirmative response'
       };
@@ -203,7 +203,7 @@ class EnhancedParser {
       console.log('❌ Parser: Negative response detected');
       return {
         type: 'classification',
-        category: 'unsafe',
+        category: 'DANGER',
         confidence: 0.8,
         reasoning: 'Negative response'
       };
@@ -213,7 +213,7 @@ class EnhancedParser {
     console.log('⚠️ Parser: Cannot determine safety status, needs clarification');
     return {
       type: 'classification',
-      category: 'uncertain',
+      category: 'UNSURE',
       confidence: 0.3,
       needsClarification: true,
       clarificationPrompt: "I need to make sure - are you in a safe, protected space right now?"

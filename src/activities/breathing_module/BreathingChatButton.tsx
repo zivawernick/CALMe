@@ -1,4 +1,4 @@
-import React from 'react'
+// Removed unused import
 
 export default function BreathingChatButton() {
     /* This Button will contain an ICON to show on the main chat 
