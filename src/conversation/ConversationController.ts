@@ -91,30 +91,81 @@ export class ConversationController implements ConversationControllerInterface {
   private userProfile: UserProfile | null = null;
   private userVariables: Record<string, any> = {};
   private attemptedActivities: Set<string> = new Set();
+  private initializationComplete: boolean = false;
 
   constructor() {
-    this.conversationMap = conversationMapV2;
-    this.currentNodeId = conversationMapV2.startNode;
+    // Check for firsttime flag synchronously
+    const urlParams = new URLSearchParams(window.location.search);
+    const isFirstTime = urlParams.get('firsttime') === 'true';
+    
+    if (isFirstTime) {
+      console.log('🧪 CONSTRUCTOR: First-time flag detected, starting with onboarding');
+      this.isOnboarding = true;
+      this.conversationMap = onboardingConversationMap;
+      this.currentNodeId = onboardingConversationMap.startNode;
+    } else {
+      // Set default conversation map but wait for profile to determine which to use
+      this.conversationMap = conversationMapV2;
+      this.currentNodeId = conversationMapV2.startNode;
+    }
+    
     this.initializeProfile();
   }
 
   private async initializeProfile() {
     try {
+      console.log('🚀 INIT: Starting profile initialization');
       await userProfileStorage.init();
+      console.log('🚀 INIT: Storage initialized');
+      
+      // Check for firsttime flag in URL params for testing
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasFirstTimeFlag = urlParams.get('firsttime') === 'true';
+      
+      if (hasFirstTimeFlag) {
+        console.log('🧪 INIT: First-time flag detected, clearing all data for testing');
+        await userProfileStorage.clearAllData();
+        // Remove the parameter from URL to avoid repeated clearing
+        window.history.replaceState({}, document.title, window.location.pathname);
+        console.log('🧪 INIT: Data cleared, URL cleaned');
+        // Don't check profile - we already set onboarding in constructor
+        this.initializationComplete = true;
+        console.log('🚀 INIT: Profile initialization complete (firsttime mode)');
+        return;
+      }
+      
       this.userProfile = await userProfileStorage.getActiveProfile();
+      console.log('🚀 INIT: Profile retrieval result:', this.userProfile);
       
       // If no profile exists, switch to onboarding
       if (!this.userProfile || !this.userProfile.onboardingCompleted) {
-        console.log('🎯 No profile found, starting onboarding');
+        console.log('🎯 INIT: No valid profile found, starting onboarding');
+        console.log('🎯 INIT: Profile null?', this.userProfile === null);
+        console.log('🎯 INIT: Onboarding completed?', this.userProfile?.onboardingCompleted);
         this.isOnboarding = true;
         this.conversationMap = onboardingConversationMap;
         this.currentNodeId = onboardingConversationMap.startNode;
+        console.log('🎯 INIT: Switched to onboarding map, starting node:', this.currentNodeId);
+        console.log('🎯 INIT: isOnboarding flag set to:', this.isOnboarding);
       } else {
-        console.log('✅ Profile loaded:', this.userProfile.name);
+        console.log('✅ INIT: Profile loaded successfully:', this.userProfile.name);
+        console.log('✅ INIT: Using main conversation map');
         this.userVariables.name = this.userProfile.name;
+        this.isOnboarding = false;
+        this.conversationMap = conversationMapV2;
+        this.currentNodeId = conversationMapV2.startNode;
       }
+      
+      console.log('🚀 INIT: Profile initialization complete');
+      console.log('🚀 INIT: Current map start node:', this.conversationMap.startNode);
+      console.log('🚀 INIT: Current node ID:', this.currentNodeId);
+      console.log('🚀 INIT: Is onboarding:', this.isOnboarding);
+      
+      this.initializationComplete = true;
     } catch (error) {
-      console.error('Failed to initialize profile:', error);
+      console.error('❌ INIT: Failed to initialize profile:', error);
+      // Even on error, mark as complete so app can continue
+      this.initializationComplete = true;
     }
   }
 
@@ -124,11 +175,13 @@ export class ConversationController implements ConversationControllerInterface {
   }
 
   processParserOutput(result: ClassificationResult | ExtractionResult): { nextNode: ConversationNode; activityTrigger?: ActivityTrigger } {
+    console.log('🔧 PROCESS: Processing parser output:', result);
     const currentNode = this.getCurrentNode();
+    console.log('🔧 PROCESS: Current node:', currentNode);
     
     // Handle clarification needs
     if (result.needsClarification && result.clarificationPrompt) {
-      console.log('❓ Parser needs clarification');
+      console.log('❓ PROCESS: Parser needs clarification');
       // Create a temporary clarification node
       const clarificationNode: ConversationNode = {
         id: `${this.currentNodeId}_clarify`,
@@ -143,6 +196,7 @@ export class ConversationController implements ConversationControllerInterface {
     if (!currentNode.next) {
       // Check if this is an end node or if we're completing onboarding
       if (currentNode.type === 'end' && this.isOnboarding) {
+        console.log('🎯 PROCESS: Completing onboarding');
         // Complete onboarding with collected data
         this.completeOnboarding(this.userVariables);
       }
@@ -154,22 +208,30 @@ export class ConversationController implements ConversationControllerInterface {
     // Handle simple string next (direct transition)
     if (typeof currentNode.next === 'string') {
       nextNodeId = currentNode.next;
+      console.log('🔧 PROCESS: Simple transition to:', nextNodeId);
     } else {
       // Handle conditional logic
+      console.log('🔧 PROCESS: Evaluating conditional logic');
       const decisionLogic = currentNode.next as ConversationDecisionLogic;
       nextNodeId = this.evaluateConditions(decisionLogic, result);
+      console.log('🔧 PROCESS: Conditional result, moving to:', nextNodeId);
     }
 
     // Move to next node
     const nextNode = this.moveToNode(nextNodeId);
+    console.log('🔧 PROCESS: Moved to next node:', nextNode);
     
     // Check if this triggers an activity
     let activityTrigger: ActivityTrigger | undefined;
     if (nextNode.type === 'activity' && nextNode.activity) {
+      console.log('🎯 PROCESS: Activity node detected, creating trigger');
       activityTrigger = {
         activityName: nextNode.activity,
         returnNode: nextNode.next as string // Activities should have simple string next
       };
+      console.log('🎯 PROCESS: Activity trigger created:', activityTrigger);
+    } else {
+      console.log('🔧 PROCESS: No activity trigger (node type:', nextNode.type, ', activity:', nextNode.activity, ')');
     }
 
     return { nextNode, activityTrigger };
@@ -249,19 +311,31 @@ export class ConversationController implements ConversationControllerInterface {
   }
 
   getCurrentNode(): ConversationNode {
+    console.log('🔍 NODE: Getting current node with ID:', this.currentNodeId);
+    console.log('🔍 NODE: Current map has', this.conversationMap.nodes.size, 'nodes');
+    console.log('🔍 NODE: Is onboarding:', this.isOnboarding);
+    
     const node = this.conversationMap.nodes.get(this.currentNodeId);
     if (!node) {
+      console.error('❌ NODE: Node not found!', this.currentNodeId);
+      console.error('❌ NODE: Available nodes:', Array.from(this.conversationMap.nodes.keys()));
       throw new Error(`Node ${this.currentNodeId} not found`);
     }
+    
+    console.log('✅ NODE: Found node:', node);
     
     // Substitute variables in content
     if (node.content) {
       let content = node.content;
+      console.log('🔍 NODE: Original content:', content);
+      console.log('🔍 NODE: Available variables:', this.userVariables);
+      
       // Replace {variable} with actual values
       Object.entries(this.userVariables).forEach(([key, value]) => {
         content = content.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
       });
       
+      console.log('🔍 NODE: Content after substitution:', content);
       return { ...node, content };
     }
     
@@ -382,7 +456,7 @@ export class ConversationController implements ConversationControllerInterface {
 
   // Get list of activities user hasn't tried yet
   getUnattemptedActivities(): string[] {
-    const allActivities = ['breathing', 'grounding', 'music', 'story', 'draw', 'matching'];
+    const allActivities = ['breathing', 'stretching', 'matching-cards', 'sudoku', 'puzzle', 'paint', 'grounding', 'music', 'story'];
     return allActivities.filter(activity => !this.attemptedActivities.has(activity));
   }
 
@@ -395,5 +469,15 @@ export class ConversationController implements ConversationControllerInterface {
   // Check if in onboarding
   isInOnboarding(): boolean {
     return this.isOnboarding;
+  }
+
+  // Force refresh profile check (for testing)
+  async refreshProfile(): Promise<void> {
+    await this.initializeProfile();
+  }
+
+  // Check if initialization is complete
+  isInitialized(): boolean {
+    return this.initializationComplete;
   }
 }

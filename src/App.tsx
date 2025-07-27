@@ -46,19 +46,49 @@ function App() {
   // Initialize conversation after controller loads profile
   useEffect(() => {
     const initializeConversation = async () => {
-      // Wait a bit for the controller to initialize
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('🎬 APP: Starting conversation initialization');
       
-      const initialNode = conversationController.getCurrentNode();
-      setConversationHistory([{
-        id: Date.now().toString(),
-        type: 'message',
-        content: initialNode.content || "Hello! I'm here with you.",
-        timestamp: new Date().toISOString(),
-        isUser: false,
-        nodeId: initialNode.id
-      }]);
-      setIsInitialized(true);
+      // Wait for controller initialization to complete
+      let retries = 0;
+      while (!conversationController.isInitialized() && retries < 50) {
+        console.log('🎬 APP: Waiting for controller initialization...', retries);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        retries++;
+      }
+      
+      if (!conversationController.isInitialized()) {
+        console.error('🎬 APP: Controller initialization timeout');
+      }
+      
+      try {
+        console.log('🎬 APP: Getting initial node from controller');
+        const initialNode = conversationController.getCurrentNode();
+        console.log('🎬 APP: Initial node received:', initialNode);
+        console.log('🎬 APP: Controller is in onboarding?', conversationController.isInOnboarding());
+        
+        setConversationHistory([{
+          id: Date.now().toString(),
+          type: 'message',
+          content: initialNode.content || "Hello! I'm here with you.",
+          timestamp: new Date().toISOString(),
+          isUser: false,
+          nodeId: initialNode.id
+        }]);
+        setIsInitialized(true);
+        console.log('🎬 APP: Conversation initialization complete');
+      } catch (error) {
+        console.error('🎬 APP: Error initializing conversation:', error);
+        // Fallback to default message if there's an error
+        setConversationHistory([{
+          id: Date.now().toString(),
+          type: 'message',
+          content: "Welcome to CALMe. I'm here to support you.",
+          timestamp: new Date().toISOString(),
+          isUser: false,
+          nodeId: 'start'
+        }]);
+        setIsInitialized(true);
+      }
     };
     
     initializeConversation();
@@ -112,10 +142,15 @@ function App() {
       
       // Handle activity trigger with natural delay
       if (activityTrigger) {
+        console.log('🎯 ACTIVITY: Activity trigger detected:', activityTrigger);
         setActivityReturnNode(activityTrigger.returnNode);
+        
+        console.log('🎯 ACTIVITY: Available apps in context:', appsContext?.map(app => app.name));
         const targetApp = appsContext?.find((app) => app.name === activityTrigger.activityName);
+        console.log('🎯 ACTIVITY: Found target app:', targetApp);
         
         if (targetApp) {
+          console.log('🎯 ACTIVITY: Target app found, launching activity');
           // Show a transitional message for activities
           if (activityTrigger.activityName === 'breathing') {
             const transitionMsg: Message = {
@@ -132,10 +167,12 @@ function App() {
           setChosenApp(targetApp);
           setShouldAutoLaunchApp(true);
           const timer = setTimeout(() => {
+            console.log('🎯 ACTIVITY: Timer triggered, showing app launcher');
             setShowAppsLauncher(true);
           }, 2000); // 2 second delay for user to read
           setAppsTimeout(timer);
-        } else if (!['breathing', 'matching'].includes(activityTrigger.activityName)) {
+        } else if (!['breathing', 'stretching', 'matching-cards', 'sudoku', 'puzzle', 'paint'].includes(activityTrigger.activityName)) {
+          console.log('🎯 ACTIVITY: Activity not implemented, showing placeholder');
           // Show placeholder for unbuilt activities
           const placeholderMsg: Message = {
             id: Date.now().toString() + '_placeholder',
@@ -161,6 +198,17 @@ function App() {
             };
             setConversationHistory(prev => [...prev, continueMsg]);
           }, 1500);
+        } else {
+          console.log('🎯 ACTIVITY: Activity name mismatch, expected app but not found');
+          const mismatchMsg: Message = {
+            id: Date.now().toString() + '_mismatch',
+            type: 'message',
+            content: `Starting ${activityTrigger.activityName} exercise...`,
+            timestamp: new Date().toISOString(),
+            isUser: false,
+            nodeId: nextNode.id
+          };
+          setConversationHistory(prev => [...prev, mismatchMsg]);
         }
       }
       

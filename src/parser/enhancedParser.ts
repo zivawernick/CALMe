@@ -326,7 +326,7 @@ class EnhancedParser {
     };
   }
 
-  // Parser for activity preferences
+  // Parser for activity preferences - Updated to match appsContext names
   parseActivityPreference(input: string): ParserResult {
     console.log('🔍 Parser: Analyzing activity preference from input:', input);
     
@@ -334,11 +334,15 @@ class EnhancedParser {
     
     const activityKeywords = [
       { keywords: ['breath', 'breathing', 'breathe'], activity: 'breathing' },
+      { keywords: ['stretch', 'stretching', 'exercise'], activity: 'stretching' },
+      { keywords: ['game', 'match', 'play', 'cards', 'memory'], activity: 'matching-cards' },
+      { keywords: ['sudoku', 'numbers', 'puzzle', 'logic'], activity: 'sudoku' },
+      { keywords: ['jigsaw', 'piece', 'pieces'], activity: 'puzzle' },
+      { keywords: ['draw', 'drawing', 'creative', 'art', 'paint'], activity: 'paint' },
+      // Fallback aliases for unmapped activities
       { keywords: ['ground', 'grounding', '5-4-3-2-1'], activity: 'grounding' },
       { keywords: ['music', 'song', 'listen', 'audio'], activity: 'music' },
-      { keywords: ['story', 'tale', 'narrative'], activity: 'story' },
-      { keywords: ['draw', 'drawing', 'creative', 'art'], activity: 'draw' },
-      { keywords: ['game', 'match', 'play', 'cards'], activity: 'matching' }
+      { keywords: ['story', 'tale', 'narrative'], activity: 'story' }
     ];
     
     for (const mapping of activityKeywords) {
@@ -373,7 +377,7 @@ class EnhancedParser {
       category: 'unclear_activity',
       confidence: 0.3,
       needsClarification: true,
-      clarificationPrompt: "Would you like to try breathing exercises, grounding techniques, or perhaps listen to something calming?"
+      clarificationPrompt: "Would you like to try breathing exercises, stretching, or perhaps a matching game?"
     };
   }
 }

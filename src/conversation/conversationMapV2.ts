@@ -306,11 +306,14 @@ const nodes = new Map<string, ConversationNode>([
     {
       conditions: [
         { if: 'category === "breathing"', goto: 'activity_breathing' },
+        { if: 'category === "stretching"', goto: 'activity_stretching' },
+        { if: 'category === "matching-cards"', goto: 'activity_matching' },
+        { if: 'category === "sudoku"', goto: 'activity_sudoku' },
+        { if: 'category === "puzzle"', goto: 'activity_puzzle' },
+        { if: 'category === "paint"', goto: 'activity_paint' },
         { if: 'category === "grounding"', goto: 'activity_grounding' },
         { if: 'category === "music"', goto: 'activity_music' },
         { if: 'category === "story"', goto: 'activity_story' },
-        { if: 'category === "draw"', goto: 'activity_draw' },
-        { if: 'category === "matching"', goto: 'activity_matching' },
         { if: 'category === "no_activity"', goto: 'end_node' },
         { if: 'needsClarification === true', goto: 'activity_choice_clarify' },
         { default: true, goto: 'activity_choice_clarify' }
@@ -326,6 +329,8 @@ const nodes = new Map<string, ConversationNode>([
     {
       conditions: [
         { if: 'category === "breathing"', goto: 'activity_breathing' },
+        { if: 'category === "stretching"', goto: 'activity_stretching' },
+        { if: 'category === "matching-cards"', goto: 'activity_matching' },
         { if: 'category === "grounding"', goto: 'activity_grounding' },
         { if: 'extractedValue.includes("listen") || extractedValue.includes("music")', goto: 'activity_music' },
         { if: 'category === "no_activity"', goto: 'end_node' },
@@ -355,12 +360,48 @@ const nodes = new Map<string, ConversationNode>([
   ),
 
   createNode(
+    'activity_stretching',
+    'Starting stretching routine...',
+    'activity',
+    'continue_loop',
+    undefined,
+    'stretching'
+  ),
+
+  createNode(
     'activity_matching',
     'Starting card matching game...',
     'activity',
     'continue_loop',
     undefined,
-    'matching'
+    'matching-cards'
+  ),
+
+  createNode(
+    'activity_sudoku',
+    'Starting sudoku puzzle...',
+    'activity',
+    'continue_loop',
+    undefined,
+    'sudoku'
+  ),
+
+  createNode(
+    'activity_puzzle',
+    'Starting jigsaw puzzle...',
+    'activity',
+    'continue_loop',
+    undefined,
+    'puzzle'
+  ),
+
+  createNode(
+    'activity_paint',
+    'Opening digital canvas...',
+    'activity',
+    'continue_loop',
+    undefined,
+    'paint'
   ),
 
   createNode(
@@ -373,13 +414,6 @@ const nodes = new Map<string, ConversationNode>([
   createNode(
     'activity_story',
     'Activity "Calming Story" would be called, but is still in development.',
-    'question',
-    'continue_loop'
-  ),
-
-  createNode(
-    'activity_draw',
-    'Activity "Creative Drawing" would be called, but is still in development.',
     'question',
     'continue_loop'
   ),
