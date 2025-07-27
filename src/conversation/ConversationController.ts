@@ -1,8 +1,10 @@
 // Conversation Controller for CALMe Therapeutic Flow
 // Implements dynamic conversation flow based on conversation map specification
 
-import { therapeuticConversationMap } from './conversationMap';
-import type { ConversationDecisionLogic } from './conversationMap';
+import { conversationMapV2 } from './conversationMapV2';
+import { onboardingConversationMap, onboardingParsers } from './onboardingMap';
+import { userProfileStorage, type UserProfile } from '../storage/userProfileStorage';
+import * as enhancedParser from '../parser/enhancedParser';
 
 // Import types from parser module instead
 type ClassificationResult = {
@@ -19,6 +21,14 @@ type ExtractionResult = {
   informationType: string;
   extractionMethod?: string;
 };
+
+export interface ConversationDecisionLogic {
+  conditions: Array<{
+    if?: string;
+    default?: boolean;
+    goto: string;
+  }>;
+}
 
 export interface ConversationNode {
   id: string;
@@ -72,10 +82,35 @@ export interface ConversationControllerInterface {
 export class ConversationController implements ConversationControllerInterface {
   private conversationMap: ConversationMap;
   private currentNodeId: string;
+  private isOnboarding: boolean = false;
+  private userProfile: UserProfile | null = null;
+  private userVariables: Record<string, any> = {};
+  private attemptedActivities: Set<string> = new Set();
 
   constructor() {
-    this.conversationMap = therapeuticConversationMap;
-    this.currentNodeId = therapeuticConversationMap.startNode;
+    this.conversationMap = conversationMapV2;
+    this.currentNodeId = conversationMapV2.startNode;
+    this.initializeProfile();
+  }
+
+  private async initializeProfile() {
+    try {
+      await userProfileStorage.init();
+      this.userProfile = await userProfileStorage.getActiveProfile();
+      
+      // If no profile exists, switch to onboarding
+      if (!this.userProfile || !this.userProfile.onboardingCompleted) {
+        console.log('🎯 No profile found, starting onboarding');
+        this.isOnboarding = true;
+        this.conversationMap = onboardingConversationMap;
+        this.currentNodeId = onboardingConversationMap.startNode;
+      } else {
+        console.log('✅ Profile loaded:', this.userProfile.name);
+        this.userVariables.name = this.userProfile.name;
+      }
+    } catch (error) {
+      console.error('Failed to initialize profile:', error);
+    }
   }
 
   initialize(map?: ConversationMap): void {
@@ -86,7 +121,26 @@ export class ConversationController implements ConversationControllerInterface {
   processParserOutput(result: ClassificationResult | ExtractionResult): { nextNode: ConversationNode; activityTrigger?: ActivityTrigger } {
     const currentNode = this.getCurrentNode();
     
+    // Handle clarification needs
+    if (result.needsClarification && result.clarificationPrompt) {
+      console.log('❓ Parser needs clarification');
+      // Create a temporary clarification node
+      const clarificationNode: ConversationNode = {
+        id: `${this.currentNodeId}_clarify`,
+        type: 'question',
+        content: result.clarificationPrompt,
+        next: currentNode.next,
+        parser: currentNode.parser
+      };
+      return { nextNode: clarificationNode, activityTrigger: undefined };
+    }
+    
     if (!currentNode.next) {
+      // Check if this is an end node or if we're completing onboarding
+      if (currentNode.type === 'end' && this.isOnboarding) {
+        // Complete onboarding with collected data
+        this.completeOnboarding(this.userVariables);
+      }
       throw new Error(`Node ${this.currentNodeId} has no next steps defined`);
     }
 
@@ -194,6 +248,18 @@ export class ConversationController implements ConversationControllerInterface {
     if (!node) {
       throw new Error(`Node ${this.currentNodeId} not found`);
     }
+    
+    // Substitute variables in content
+    if (node.content) {
+      let content = node.content;
+      // Replace {variable} with actual values
+      Object.entries(this.userVariables).forEach(([key, value]) => {
+        content = content.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+      });
+      
+      return { ...node, content };
+    }
+    
     return node;
   }
 
@@ -218,5 +284,111 @@ export class ConversationController implements ConversationControllerInterface {
   getCurrentParserType(): string | null {
     const currentNode = this.getCurrentNode();
     return currentNode.parser || null;
+  }
+
+  // Handle onboarding completion
+  async completeOnboarding(profileData: Partial<UserProfile>) {
+    try {
+      const profile: UserProfile = {
+        id: 'primary', // Single profile for now
+        name: profileData.name || 'User',
+        safeSpaceType: profileData.safeSpaceType || 'other',
+        safeSpaceLocation: profileData.safeSpaceLocation || '',
+        timeToReachSafety: profileData.timeToReachSafety || 60,
+        backupLocation: profileData.backupLocation,
+        accessibilityNeeds: profileData.accessibilityNeeds || [],
+        calmingPreferences: profileData.calmingPreferences || [],
+        emergencyContacts: profileData.emergencyContacts,
+        language: profileData.language || 'en',
+        createdAt: new Date(),
+        lastUpdated: new Date(),
+        isActive: true,
+        onboardingCompleted: true
+      };
+
+      await userProfileStorage.saveProfile(profile);
+      this.userProfile = profile;
+      this.isOnboarding = false;
+      
+      // Switch to main conversation
+      this.conversationMap = conversationMapV2;
+      this.currentNodeId = conversationMapV2.startNode;
+      
+      console.log('✅ Onboarding completed for:', profile.name);
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+    }
+  }
+
+  // Enhanced parser that routes to appropriate parser
+  runParser(parserType: string, input: string): ClassificationResult | ExtractionResult {
+    console.log(`🔧 Running parser: ${parserType} on input: "${input}"`);
+    
+    // Check onboarding-specific parsers first
+    if (this.isOnboarding && parserType in onboardingParsers) {
+      const parser = onboardingParsers[parserType as keyof typeof onboardingParsers];
+      const result = parser(input);
+      
+      // Store extracted values for profile building
+      if (result.type === 'extraction') {
+        this.userVariables[result.informationType] = result.extractedValue;
+      }
+      
+      return result;
+    }
+    
+    // Use enhanced parser for standard parsers
+    switch (parserType) {
+      case 'classifyStress':
+        return enhancedParser.classifyStress(input);
+      case 'classifySafety':
+        return enhancedParser.classifySafety(input);
+      case 'extractLocation':
+        return enhancedParser.extractLocation(input);
+      case 'parseYesNo':
+        return enhancedParser.parseYesNo(input);
+      case 'parseActivityPreference':
+        const result = enhancedParser.parseActivityPreference(input);
+        // Track attempted activities
+        if (result.category && result.category !== 'no_activity' && result.category !== 'unclear_activity') {
+          this.attemptedActivities.add(result.category);
+        }
+        return result;
+      default:
+        console.warn(`Unknown parser type: ${parserType}`);
+        return {
+          type: 'classification',
+          category: 'unknown',
+          confidence: 0.1,
+          needsClarification: true
+        };
+    }
+  }
+
+  // Record activity completion
+  async recordActivityCompletion(activityName: string, completed: boolean) {
+    if (this.userProfile) {
+      await userProfileStorage.recordActivity(this.userProfile.id, activityName, completed);
+    }
+    
+    // Add to attempted activities
+    this.attemptedActivities.add(activityName);
+  }
+
+  // Get list of activities user hasn't tried yet
+  getUnattemptedActivities(): string[] {
+    const allActivities = ['breathing', 'grounding', 'music', 'story', 'draw', 'matching'];
+    return allActivities.filter(activity => !this.attemptedActivities.has(activity));
+  }
+
+  // Switch to alert mode
+  switchToAlertMode() {
+    console.log('🚨 Switching to alert mode');
+    this.currentNodeId = 'alert_start';
+  }
+
+  // Check if in onboarding
+  isInOnboarding(): boolean {
+    return this.isOnboarding;
   }
 }

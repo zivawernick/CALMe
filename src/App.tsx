@@ -7,39 +7,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "./chat_interface/ui/avatar"
 import { Button } from "./chat_interface/ui/button";
 import { MoreVertical, Settings, Accessibility } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { classifySafety, classifyStress, extractLocation } from './parser/semanticParser';
 import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsContextApi';
 import AppLauncer from './AppLauncher/AppLauncer';
 import { ConversationController } from './conversation/ConversationController';
-
-// Parser result interfaces
-
-interface ClassificationResult {
-  type: 'classification';
-  category: string;
-  confidence: number;
-  reasoning?: string;
-}
-
-interface ExtractionResult {
-  type: 'extraction';
-  extractedValue: string;
-  confidence: number;
-  informationType: string;
-  extractionMethod?: string;
-}
+import { AlertTimer } from './components/AlertTimer';
 
 // Chat Interface
 interface Message {
   id: string;
   type: 'message' | 'app-buttons' | 'audio';
-  content: ClassificationResult | ExtractionResult | string | null,
+  content: string;
   timestamp: string;
   isUser: boolean;
   appsTypes?: 'activities' | 'games';
   audioDuration?: number;
   nodeId: string;
-  result: ClassificationResult| ExtractionResult | null;
 }
 
 // Conversation is now handled by ConversationController
@@ -47,19 +29,11 @@ interface Message {
 function App() {
   const [conversationController] = useState(() => new ConversationController());
   const [userInput, setUserInput] = useState('');
-  const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
-  const [conversationHistory, setConversationHistory] = useState<Message[]>(() => {
-    const initialNode = conversationController.getCurrentNode();
-    return [{
-      id: Date.now().toString(),
-      type: 'message',
-      content: initialNode.content || "Hello! I'm here with you.",
-      timestamp: new Date().toISOString(),
-      isUser: false,
-      nodeId: initialNode.id,
-      result: null,
-    }];
-  }); 
+  const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [showAlertButton, setShowAlertButton] = useState(true);
+  const [alertTimer, setAlertTimer] = useState<number | null>(null);
+  const [alertInterval, setAlertInterval] = useState<ReturnType<typeof setInterval> | null>(null); 
   const [showAppsLauncher, setShowAppsLauncher] = useState(false);
   const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
   const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
@@ -69,6 +43,27 @@ function App() {
   const appsContext = useContext(AppsContext);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
+  // Initialize conversation after controller loads profile
+  useEffect(() => {
+    const initializeConversation = async () => {
+      // Wait a bit for the controller to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const initialNode = conversationController.getCurrentNode();
+      setConversationHistory([{
+        id: Date.now().toString(),
+        type: 'message',
+        content: initialNode.content || "Hello! I'm here with you.",
+        timestamp: new Date().toISOString(),
+        isUser: false,
+        nodeId: initialNode.id
+      }]);
+      setIsInitialized(true);
+    };
+    
+    initializeConversation();
+  }, [conversationController]);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -77,52 +72,17 @@ function App() {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-    if (userInput !== '') {
-      getResult();
-    }
   }, [conversationHistory]);
-  
+
+  // Process user input when it changes
   useEffect(() => {
-    if (!result) {
-      return;
+    if (userInput !== '' && isInitialized) {
+      processUserInput();
     }
-    
-    try {
-      const currentNode = conversationController.getCurrentNode();
-      const isEndNode = conversationController.isComplete();
-      
-      // Determine message type based on context
-      let msgType: 'message' | 'app-buttons' = 'message';
-      if (currentNode.type === 'question' && !isEndNode && !showAppsLauncher) {
-        // Show app buttons for certain stress-related nodes
-        const shouldShowButtons = currentNode.id.includes('ongoing_support') || 
-                                 currentNode.id.includes('stress') ||
-                                 currentNode.id.includes('breathing_return') ||
-                                 currentNode.id.includes('grounding_return');
-        msgType = shouldShowButtons ? 'app-buttons' : 'message';
-      }
-      
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        type: msgType,
-        content: currentNode.content || "How can I help you?",
-        timestamp: new Date().toISOString(),
-        isUser: false,
-        nodeId: currentNode.id,
-        result: result,
-      };
+  }, [userInput, isInitialized]);
 
-      const newHistory = [...conversationHistory, newMessage];
-      setConversationHistory(newHistory);
-      
-    } catch (error) {
-      console.error('Error updating conversation:', error);
-    }
-
-  }, [result, conversationController]);
-
-  const getResult = () => {
-    if (!userInput.trim()) return; 
+  const processUserInput = () => {
+    if (!userInput.trim()) return;
     
     try {
       // Get current parser type from conversation controller
@@ -132,73 +92,96 @@ function App() {
         return;
       }
 
-      // Run appropriate parser based on current node
-      let stepResult: ClassificationResult | ExtractionResult;
-      
-      if (parserType === 'classifySafety') {
-        const semanticResult = classifySafety(userInput);
-        stepResult = {
-          type: 'classification',
-          category: semanticResult.category,
-          confidence: semanticResult.confidence,
-          reasoning: semanticResult.reasoning
-        };
-      } else if (parserType === 'classifyStress') {
-        const semanticResult = classifyStress(userInput);
-        stepResult = {
-          type: 'classification',
-          category: semanticResult.category,
-          confidence: semanticResult.confidence,
-          reasoning: semanticResult.reasoning
-        };
-      } else if (parserType === 'extractLocation') {
-        const semanticResult = extractLocation(userInput);
-        stepResult = {
-          type: 'extraction',
-          extractedValue: semanticResult.extractedValue,
-          confidence: semanticResult.confidence,
-          informationType: 'location',
-          extractionMethod: semanticResult.extractionMethod
-        };
-      } else {
-        // Default classification for general responses
-        const semanticResult = classifyStress(userInput);
-        stepResult = {
-          type: 'classification',
-          category: semanticResult.category,
-          confidence: semanticResult.confidence,
-          reasoning: semanticResult.reasoning
-        };
-      }
-      
-      setResult(stepResult);
+      // Run parser through the controller
+      const stepResult = conversationController.runParser(parserType, userInput);
       
       // Process with conversation controller
-      const { activityTrigger } = conversationController.processParserOutput(stepResult);
+      const { nextNode, activityTrigger } = conversationController.processParserOutput(stepResult);
       
-      // Handle activity trigger
+      // Add system response
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        type: 'message',
+        content: nextNode.content || "How can I help you?",
+        timestamp: new Date().toISOString(),
+        isUser: false,
+        nodeId: nextNode.id
+      };
+      
+      setConversationHistory(prev => [...prev, newMessage]);
+      
+      // Handle activity trigger with natural delay
       if (activityTrigger) {
         setActivityReturnNode(activityTrigger.returnNode);
         const targetApp = appsContext?.find((app) => app.name === activityTrigger.activityName);
+        
         if (targetApp) {
+          // Show a transitional message for activities
+          if (activityTrigger.activityName === 'breathing') {
+            const transitionMsg: Message = {
+              id: Date.now().toString() + '_transition',
+              type: 'message',
+              content: "You seem like you could use a moment to relax. Let's try some breathing exercises.",
+              timestamp: new Date().toISOString(),
+              isUser: false,
+              nodeId: nextNode.id
+            };
+            setConversationHistory(prev => [...prev, transitionMsg]);
+          }
+          
           setChosenApp(targetApp);
           setShouldAutoLaunchApp(true);
           const timer = setTimeout(() => {
             setShowAppsLauncher(true);
-          }, 1500);
+          }, 2000); // 2 second delay for user to read
           setAppsTimeout(timer);
+        } else if (!['breathing', 'matching'].includes(activityTrigger.activityName)) {
+          // Show placeholder for unbuilt activities
+          const placeholderMsg: Message = {
+            id: Date.now().toString() + '_placeholder',
+            type: 'message',
+            content: `Activity "${activityTrigger.activityName}" would be called, but is still in development.`,
+            timestamp: new Date().toISOString(),
+            isUser: false,
+            nodeId: nextNode.id
+          };
+          setConversationHistory(prev => [...prev, placeholderMsg]);
+          
+          // Continue conversation after placeholder
+          setTimeout(() => {
+            conversationController.moveToNode(activityTrigger.returnNode);
+            const returnNode = conversationController.getCurrentNode();
+            const continueMsg: Message = {
+              id: Date.now().toString() + '_continue',
+              type: 'message',
+              content: returnNode.content || "Let's continue.",
+              timestamp: new Date().toISOString(),
+              isUser: false,
+              nodeId: returnNode.id
+            };
+            setConversationHistory(prev => [...prev, continueMsg]);
+          }, 1500);
         }
       }
       
     } catch (error) {
       console.error('Error processing user input:', error);
-      toast.error('Something went wrong processing your message');
+      // Don't expose internal errors to user
+      const errorMsg: Message = {
+        id: Date.now().toString() + '_error',
+        type: 'message',
+        content: "I didn't quite understand that. Could you rephrase?",
+        timestamp: new Date().toISOString(),
+        isUser: false,
+        nodeId: conversationController.getCurrentNode().id
+      };
+      setConversationHistory(prev => [...prev, errorMsg]);
     }
     
     setUserInput('');
   };
   
-  const handleSendMessage = (e:any) => {
+  const handleSendMessage = (e: string) => {
     if (!e.trim()) return; 
     const currentNode = conversationController.getCurrentNode();
     const newMessage: Message = {
@@ -207,21 +190,25 @@ function App() {
       content: e,
       timestamp: new Date().toISOString(),
       isUser: true,
-      nodeId: currentNode.id,
-      result: null,
+      nodeId: currentNode.id
     };
-    const newHistory = [...conversationHistory, newMessage];
-    setConversationHistory(newHistory);
+    setConversationHistory(prev => [...prev, newMessage]);
     setUserInput(e);
   };
 
   // getCurrentQuestion is now replaced by the conversation controller
 
-  const closeAppLauncher = () => {
+  const closeAppLauncher = async () => {
     if (appsTimeout) {
       clearTimeout(appsTimeout);
       setAppsTimeout(null);
     }
+    
+    // Record activity completion
+    if (chosenApp) {
+      await conversationController.recordActivityCompletion(chosenApp.name, true);
+    }
+    
     setChosenApp(undefined);
     setShowAppsLauncher(false);
     setShouldAutoLaunchApp(false);
@@ -239,8 +226,7 @@ function App() {
           content: returnNode.content || "Welcome back! How was that?",
           timestamp: new Date().toISOString(),
           isUser: false,
-          nodeId: returnNode.id,
-          result: null,
+          nodeId: returnNode.id
         };
         
         setConversationHistory(prev => [...prev, returnMessage]);
@@ -293,10 +279,83 @@ function App() {
     toast.info('Opening settings');
   };
 
+  // Demo red alert handler
+  const handleDemoAlert = () => {
+    console.log('🚨 Demo red alert triggered');
+    setShowAlertButton(false);
+    
+    // Switch to alert mode
+    conversationController.switchToAlertMode();
+    const alertNode = conversationController.getCurrentNode();
+    
+    // Clear current conversation and show alert message
+    setConversationHistory([{
+      id: Date.now().toString(),
+      type: 'message',
+      content: alertNode.content || "App launched after alert. You're not alone.",
+      timestamp: new Date().toISOString(),
+      isUser: false,
+      nodeId: alertNode.id
+    }]);
+    
+    // Start 3-minute timer
+    setAlertTimer(180); // 3 minutes in seconds
+    
+    const interval = setInterval(() => {
+      setAlertTimer(prev => {
+        if (prev && prev > 0) {
+          return prev - 1;
+        } else {
+          // Timer finished
+          clearInterval(interval);
+          
+          // Show all clear message
+          const allClearMsg: Message = {
+            id: Date.now().toString(),
+            type: 'message',
+            content: "Look at that, we made it! It's safe to leave the protected space whenever you feel ready.",
+            timestamp: new Date().toISOString(),
+            isUser: false,
+            nodeId: 'alert_all_clear'
+          };
+          setConversationHistory(prev => [...prev, allClearMsg]);
+          
+          // Reset after a delay
+          setTimeout(() => {
+            setShowAlertButton(true);
+            conversationController.reset();
+            const initialNode = conversationController.getCurrentNode();
+            setConversationHistory([{
+              id: Date.now().toString(),
+              type: 'message',
+              content: initialNode.content || "Hello! I'm here with you.",
+              timestamp: new Date().toISOString(),
+              isUser: false,
+              nodeId: initialNode.id
+            }]);
+          }, 5000);
+          
+          return null;
+        }
+      });
+    }, 1000);
+    
+    setAlertInterval(interval);
+  };
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (alertInterval) {
+        clearInterval(alertInterval);
+      }
+    };
+  }, [alertInterval]);
+
   const isConversationComplete = conversationController.isComplete();
 
   // Don't render if conversation is complete and no activities are shown
-  if (isConversationComplete && !showAppsLauncher) {
+  if (isConversationComplete && !showAppsLauncher && !conversationController.isInOnboarding()) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -311,10 +370,8 @@ function App() {
               content: initialNode.content || "Hello! I'm here with you.",
               timestamp: new Date().toISOString(),
               isUser: false,
-              nodeId: initialNode.id,
-              result: null,
+              nodeId: initialNode.id
             }]);
-            setResult(null);
           }}>
             Start New Conversation
           </Button>
@@ -338,12 +395,23 @@ function App() {
               <AvatarImage src="/api/placeholder/40/40" />
               <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex items-center gap-4">
               <h1 className="text-xl font-large">CALMe</h1>
+              <AlertTimer timeRemaining={alertTimer} />
             </div>
           </div>
           
           <div className="flex items-center gap-2">
+            {showAlertButton && (
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleDemoAlert}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Demo - RED ALERT
+              </Button>
+            )}
             <Button variant="ghost" size="sm" className="h-8 w-8" onClick={handleAccessibility}>
               <Accessibility className="w-4 h-4" />
             </Button>
