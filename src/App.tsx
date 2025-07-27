@@ -327,7 +327,7 @@ function App() {
       <AppsProvider value={InnerApps}>
         <Toaster />
         <div 
-        className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border"
+        className="flex flex-col h-screen w-full mx-0 bg-background border-x border-border"
         >
         {/* Fixed Header */}
         <header 
@@ -400,7 +400,7 @@ function App() {
           )}
         {/* Fixed Footer - Chat Input */}
         <div 
-        className="fixed z-1000 bottom-0 flex flex-col w-full max-w-md mx-auto bg-background border-t self-center"
+        className="fixed z-1000 bottom-0 flex flex-col w-full mx-auto bg-background border-t self-center"
         >
           <ChatInput
             onSendMessage={handleSendMessage}
