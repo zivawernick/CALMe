@@ -1,0 +1,129 @@
+flowchart TD
+%% 🌟 Visual Legend with Shape Identifiers
+subgraph Legend["🌟 Visual Legend"]
+    A(["🔐 Permissions Required"]) --> Ainfo["Rectangular Node"]
+    B(["👤 User Profile"]) --> Binfo["Rectangular Node"]
+    C{{"🚨 Red Alert-Initiated"}} --> Cinfo["Diamond Decision"]
+    D(["🧭 Emergency Checklist"]) --> Dinfo["Rectangular Node"]
+    E(["🧠 Stress Check"]) --> Einfo["Rounded Node"]
+    F["🌀 CALMe Activity Menu"] --> Finfo["Subgraph Module"]
+    G["🤝 Emotional Support"] --> Ginfo["Subgraph Module"]
+    H((("🟣 End / Closure"))) --> Hinfo["Circle Terminator"]
+end
+
+%% 🔒 Permissions & Profile
+Permissions("🔐 Permissions Required") --> Profile("👤 User Profile Setup")
+Profile --> Greeting["👋 Hello. I'm here with you.<br>Are you physically safe right now?"]
+
+%% 🚦 App Launch Type
+Greeting --> LaunchType{"How was the app launched?"}
+LaunchType --> UserLaunch("🧑‍💻 User-Initiated")
+LaunchType --> AlertLaunch("🚨 Red Alert-Initiated")
+
+%% 🧭 Shared Emergency Checklist
+UserLaunch --> Checklist["🧭 Emergency Checklist"]
+AlertLaunch --> Checklist
+Checklist --> SafeStatus{"Are you in a protected space?"}
+SafeStatus -->|No| Unsafe("🔴 Unsafe")
+SafeStatus -->|Yes| StressStart("🧠 Let's check your stress level")
+
+%% ❤️ Unsafe Flow: Empathetic Guidance
+Unsafe --> EncourageSafe("💬 Please get to the nearest safe place.<br>I am here with you every step.")
+EncourageSafe --> StressStart
+
+%% ⚡ Red Alert-Initiated Branch
+AlertLaunch --> Detection("⚡ Home Front Command Alert Detected")
+Detection --> Countdown("⏰ 90-second Countdown Begins")
+Countdown --> AudioPrompt("🔈 'Red alert. Get to safety now.'"):::rounded
+AudioPrompt --> AppScreen("📱 CALMe App Auto-Launches")
+AppScreen --> SafeQuery{"🏠 Are you in your safe space?"}
+
+SafeQuery -->|Yes| ConfirmSafe("✅ Safe Confirmed")
+ConfirmSafe --> SilenceOtherAlerts("🔕 Silencing alerts")
+SilenceOtherAlerts --> BeginCalming("🎧 Start calming audio & breathing guide")
+BeginCalming --> StressStart
+
+SafeQuery -->|No| GuideToSafety("🚶 Keep moving to safety—I will guide you")
+GuideToSafety --> Checklist
+
+SafeQuery -->|Can't reach| ContinueAlert("🔊 Alerts continue + location-specific instructions")
+
+%% 🗺️ Location-Specific Emergency Guidance
+SafeQuery --> Transit("🚗 I'm in a vehicle"):::rounded
+Transit --> CanExit{"Can you reach shelter safely?"}
+CanExit -->|Yes| TransitSteps("🏃 Exit vehicle<br>Beyond curb<br>Lie down & cover head")
+CanExit -->|No| TransitStay("🚘 Stay in vehicle<br>Open windows<br>Duck below windows<br>Protect head")
+TransitSteps --> StressStart
+TransitStay --> StressStart
+
+SafeQuery --> OpenSpace("🏗️ Outdoors / Construction site")
+OpenSpace --> OpenSpaceCheck{"Do you have shelter or gear nearby?"}
+OpenSpaceCheck -->|Yes| OpenPrep("🛡️ Prepare to enter shelter or gear")
+OpenSpaceCheck -->|No| OpenLieDown("🧍 Lie down and shield head during alert")
+OpenPrep --> StressStart
+OpenLieDown --> StressStart
+
+SafeQuery --> CareFacility("🏥 Care Facility or Caregiver")
+CareFacility --> CanMoveResidents{"Can you move residents to safety?"}
+CanMoveResidents -->|Yes| CareMove("🚪 Guide residents to reinforced shelter calmly")
+CanMoveResidents -->|No| CareStay("🧓 Stay with them<br>Protect head<br>Offer verbal reassurance")
+CareMove --> StressStart
+CareStay --> StressStart
+
+SafeQuery --> HomeLocation("🏠 Home with Protected Room")
+HomeLocation --> StressStart
+
+%% 🧠 Stress Pathway Alignment
+StressStart:::rounded --> HS("🔴 High Stress")
+StressStart --> MS("🟡 Moderate Stress")
+StressStart --> LS("🔵 Low Stress")
+StressStart --> NS("⚪ No Stress")
+
+HS --> HS1("🧍 Grounding: Press feet into the floor")
+HS1 --> HS2("🌬️ Breathing: In 4… Hold 7… Out 8")
+HS2 --> HS3{"Need emotional support services?"}
+HS3 -->|Yes| ERAN("☎️ ERAN Crisis Hotline")
+HS3 -->|No| HighCalmMenu("🎧 CALMe Activity Menu")
+
+MS --> MS1("🧩 Structure what happened")
+MS1 --> MS2("🗣️ Describe step-by-step")
+MS2 --> MS3("🌊 Feelings come and go—like waves")
+MS3 --> ModCalmMenu("🎶 Music / Grounding Activity")
+
+LS --> LS1("😐 Feeling slightly unsettled")
+LS1 --> LS2{"Would you like a calming activity?"}
+LS2 -->|Yes| LowCalmMenu("🧘 CALMe Activities")
+LS2 -->|No| LS3("💬 You're welcome back any time"):::rounded
+
+NS --> NS1("✅ All clear. Thanks for checking in.")
+NS1 --> NS2{"Try a light activity?"}
+NS2 -->|Yes| NSActivity("🧩 Music / Drawing / Story")
+NS2 -->|No| NSEnd("🌞 Have a peaceful day")
+
+%% 🌀 CALMe Activity Modules (Shared Across)
+HighCalmMenu --> CalmMenu
+ModCalmMenu --> CalmMenu
+LowCalmMenu --> CalmMenu
+NSActivity --> CalmMenu
+
+subgraph CalmMenu["🌀 CALMe Activity Menu"]
+    BreathModule("Breathing")
+    GameModule("Match Game")
+    GroundModule("5-4-3-2-1 Grounding")
+    MusicModule("🎵 Relaxing Music")
+    DrawingModule("🎨 Creative Drawing")
+    StoryModule("📖 Calming Story")
+end
+CalmMenu --> FinalEnd(("🟣 End / Closure"))
+
+%% 🫱 Shared Support Services
+ERAN --> SupportModule
+subgraph SupportModule["🤝 Emotional Support"]
+    KeepOlim("💙 KeepOlim Mental Health")
+    Tikva("📞 Tikva 24/7 Emotional Hotline")
+    MentalHealthHotline("🧠 Ministry of Health Crisis Line")
+end
+
+%% 🎨 Style Definitions
+classDef alertFlow fill:#ffecb3,stroke:#f57c00,stroke-width:2px,shape:pentagon
+class AlertLaunch alertFlow

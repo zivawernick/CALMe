@@ -11,6 +11,7 @@ import './styles/globals.css';
 import { classifySafety, classifyStress, extractLocation } from './nlp/semanticParser';
 import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsContextApi';
 import AppLauncer from './AppLauncher/AppLauncer';
+import { ConversationController } from './nlp/separated_mermaid_interpreter_parser';
 // import { Theme, ThemePanel } from "@radix-ui/themes";
 
 
@@ -195,6 +196,9 @@ function App() {
   const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
   const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
   const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [conversationController, setConversationController] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   // const [messages, setMessages] = useState<Message[]>([]); // THIS will become conversationHistoy
   /*const [messages, setMessages] = useState<Message[]>([
     // These are all messages in the chat
@@ -295,6 +299,23 @@ function App() {
 
   }, [result, currentStep]);
 
+  useEffect(() => {
+    const initController = async () => {
+      try {
+        setLoading(true);
+        const controller = await ConversationController.createFromFile('/conversation-flow.mermaid');
+        setConversationController(controller);
+        console.log('✅ Conversation system initialized');
+      } catch (err: any) {
+        console.error('❌ Failed to initialize conversation system:', err);
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initController();
+  }, []);
   
 
   const getResult = () => {
@@ -374,13 +395,16 @@ function App() {
   };
 
   const getCurrentQuestion = () => {
-    switch (currentStep) {
-      case 'safety': return SAFETY_ASSESSMENT;
-      case 'location': return LOCATION_EXTRACTION;
-      case 'stress': return STRESS_ASSESSMENT;
-      default: return null;
-    }
+    return conversationController?.getCurrentQuestion();
   };
+  // const getCurrentQuestion = () => {
+  //   switch (currentStep) {
+  //     case 'safety': return SAFETY_ASSESSMENT;
+  //     case 'location': return LOCATION_EXTRACTION;
+  //     case 'stress': return STRESS_ASSESSMENT;
+  //     default: return null;
+  //   }
+  // };
 
   const resetConversation = () => {
     // Clear any pending breathing timer
@@ -432,7 +456,7 @@ function App() {
     
   }, [shouldAutoLaunchApp]);
 
-
+  
 /////////////////////////////////////////
 
 
