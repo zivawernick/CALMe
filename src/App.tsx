@@ -184,6 +184,10 @@ function App() {
   const [currentStep, setCurrentStep] = useState<ConversationStep>('safety');
   const [userInput, setUserInput] = useState('');
   const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
+  const [conversationController, setConversationController] = useState<ConversationController>(new ConversationController());
+  const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
+  const [showAppsLauncher, setShowAppsLauncher] = useState(false);
+  const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Message[]>([{
       id: Date.now().toString(),
       type: 'message',
@@ -193,11 +197,8 @@ function App() {
       step: currentStep, 
       result: null,
       }]); 
-  const [showAppsLauncher, setShowAppsLauncher] = useState(false);
-  const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
-  const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
   const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [conversationController, setConversationController] = useState<ConversationController>(new ConversationController());
+  
   const [loading, setLoading] = useState(true);
   // const [error, setError] = useState(null);
   // const [messages, setMessages] = useState<Message[]>([]); // THIS will become conversationHistoy
