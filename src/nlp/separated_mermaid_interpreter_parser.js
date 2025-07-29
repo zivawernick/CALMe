@@ -572,7 +572,19 @@ export class ConversationController {
   }
 
   getCurrentQuestion() {
-    if (!this.isReady || !this.interpreter.isAtQuestion()) {
+    // bad
+    // if (!this.isReady || !this.interpreter.isAtQuestion()) {
+    //   return null;
+    // }
+    
+    // return this.interpreter.getCurrentQuestion();
+
+    // Fixed
+    if (!this.isReady || this.interpreter === null) {
+      return null;
+    }
+    // At this point, TypeScript knows this.interpreter is definitely MermaidInterpreter
+    if (!this.interpreter.isAtQuestion()) {
       return null;
     }
     return this.interpreter.getCurrentQuestion();

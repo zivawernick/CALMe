@@ -3,7 +3,7 @@ import './App.css'
 import { ChatMessage } from "./chat_interface/ChatMessage";
 import { ChatInput } from "./chat_interface/ChatInput";
 import { ScrollArea } from "./chat_interface/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "./chat_interface/ui/avatar";
+// import { Avatar, AvatarFallback, AvatarImage } from "./chat_interface/ui/avatar";
 import { Button } from "./chat_interface/ui/button";
 import { MoreVertical, Settings, Accessibility } from "lucide-react"; // Icon TODO - CHANGE
 import { toast } from "sonner"; // pop up notifications
@@ -12,6 +12,7 @@ import { classifySafety, classifyStress, extractLocation } from './nlp/semanticP
 import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsContextApi';
 import AppLauncer from './AppLauncher/AppLauncer';
 import { ConversationController } from './nlp/separated_mermaid_interpreter_parser';
+import { Logo } from './assets/logo';
 // import { Theme, ThemePanel } from "@radix-ui/themes";
 
 
@@ -196,9 +197,9 @@ function App() {
   const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
   const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
   const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [conversationController, setConversationController] = useState(null);
+  const [conversationController, setConversationController] = useState<ConversationController>(new ConversationController());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // const [error, setError] = useState(null);
   // const [messages, setMessages] = useState<Message[]>([]); // THIS will become conversationHistoy
   /*const [messages, setMessages] = useState<Message[]>([
     // These are all messages in the chat
@@ -280,22 +281,37 @@ function App() {
     if (!result) {
       return;
     }
-    // if (currentStep === 'complete') return;
-    const currentQuestionData = getCurrentQuestion();
-    const msgType = (currentStep === 'stress')? 'app-buttons':'message';
+    if (currentStep === 'complete') return;
+
+    const createResponse = async() => {
     
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      type: `${msgType}`,//'message',
-      content: `${currentQuestionData?.question}`,
-      timestamp: new Date().toISOString(),
-      isUser: false,
-      step: currentStep, 
-      result: result,
-      };
+      let currentQuestionData;
+
+      try {
+      currentQuestionData = await conversationController?.getCurrentQuestion();
+      } catch (err: any) {
+        console.error('❌ Failed to get a Question from flow:/n', err);
+        // setError(err);
+      } 
+      
+      const msgType = (currentStep === 'stress')? 'app-buttons':'message';
+
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        type: `${msgType}`,//'message',
+        content: `${currentQuestionData? currentQuestionData.question : "I couldn't quite get that, can you say it differenly please?"}`,
+        timestamp: new Date().toISOString(),
+        isUser: false,
+        step: currentStep, 
+        result: result,
+        };
 
       const newHistory = [...conversationHistory, newMessage];
       setConversationHistory(newHistory); // this should come at end
+      
+    }
+    
+    createResponse();
 
   }, [result, currentStep]);
 
@@ -308,7 +324,7 @@ function App() {
         console.log('✅ Conversation system initialized');
       } catch (err: any) {
         console.error('❌ Failed to initialize conversation system:', err);
-        setError(err);
+        // setError(err);
       } finally {
         setLoading(false);
       }
@@ -394,9 +410,7 @@ function App() {
     
   };
 
-  const getCurrentQuestion = () => {
-    return conversationController?.getCurrentQuestion();
-  };
+  // Replaced in useEffect
   // const getCurrentQuestion = () => {
   //   switch (currentStep) {
   //     case 'safety': return SAFETY_ASSESSMENT;
@@ -554,13 +568,13 @@ function App() {
   };
 
 
-  const currentQuestionData = getCurrentQuestion();
+  // const currentQuestionData = getCurrentQuestion();
 
-  if (!currentQuestionData) {
-    // console.log("this was meant to operate inside apps");
-    // TODO: create switch case statments for inner app upload?
-    return <></>
-    }
+  // if (!currentQuestionData) {
+  //   // console.log("this was meant to operate inside apps");
+  //   // TODO: create switch case statments for inner app upload?
+  //   return <></>
+  //   }
   return (
     <>
       {/* <Theme accentColor="crimson" grayColor="sand" radius="large" scaling="95%"> */}
@@ -573,10 +587,11 @@ function App() {
         className="flex-shrink-0 flex z-1000 items-center justify-between p-4 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" // new
         >
           <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10">
+            <Logo/>
+            {/* <Avatar className="w-10 h-10">
               <AvatarImage src="/api/placeholder/40/40" />
               <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
-            </Avatar>
+            </Avatar> */}
             <div>
               <h1 className="text-xl font-large">CALMe</h1>
               {/* <p className="text-xs text-muted-foreground">Ready to help</p> */}
