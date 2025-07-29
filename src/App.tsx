@@ -13,6 +13,7 @@ import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsC
 import AppLauncer from './AppLauncher/AppLauncer';
 import { ConversationController } from './nlp/separated_mermaid_interpreter_parser';
 import { Logo } from './assets/logo';
+import type { PathLike } from 'node:fs';
 // import { Theme, ThemePanel } from "@radix-ui/themes";
 
 
@@ -179,6 +180,7 @@ function extractInformationSemantic(text: string, question: ExtractionQuestion):
 }
 
 type ConversationStep = 'safety' | 'location' | 'stress' | 'complete';
+const SCRIPT_PATH:PathLike = '/src/conversation_flows/conversation-flow.mermaid';
 
 function App() {
   const [currentStep, setCurrentStep] = useState<ConversationStep>('safety');
@@ -191,7 +193,7 @@ function App() {
   const [conversationHistory, setConversationHistory] = useState<Message[]>([{
       id: Date.now().toString(),
       type: 'message',
-      content: "Hello User! I'm here with you, How are you feeling right now?",
+      content: `${async()=>{return await conversationController.getCurrentQuestion(SCRIPT_PATH)?.question}}` ||"Hello User! I'm here with you, How are you feeling right now?",
       timestamp: new Date().toISOString(),
       isUser: false,
       step: currentStep, 
@@ -581,7 +583,7 @@ function App() {
       {/* <Theme accentColor="crimson" grayColor="sand" radius="large" scaling="95%"> */}
       <AppsProvider value={InnerApps}>
         <div 
-        className="flex flex-col h-screen w-full max-w-md mx-auto bg-background border-x border-border" // new
+        className="flex flex-col h-screen w-full mx-auto bg-background border-x border-border" // new
         >
         {/* Fixed Header */}
         <header 
@@ -746,7 +748,7 @@ function App() {
         {/* Fixed Footer - Chat Input */}
         <div 
         // className="flex-shrink-0 fixed z-1000 bottom-0 left-0 border-t bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80" //new
-        className="fixed z-1000 bottom-0 flex flex-col w-full max-w-md mx-auto bg-background border-t self-center " //
+        className="fixed z-1000 bottom-0 flex flex-col w-full mx-auto bg-background border-t self-center " //
         >
           <ChatInput
           // TODO: make sure all submits are handles via one handler

@@ -1,5 +1,7 @@
 // Type definitions for separated_mermaid_interpreter_parser.js
 
+import type { PathLike } from "fs";
+
 // ============================================================================
 // CORE INTERFACES
 // ============================================================================
@@ -333,6 +335,7 @@ export declare class ConversationController {
   interpreter: MermaidInterpreter | null;
   nlpParser: NLPParser;
   isReady: boolean;
+  scriptPath: PathLike;
 
   constructor();
 
@@ -341,19 +344,19 @@ export declare class ConversationController {
    * @param filePath - Path to mermaid flowchart file
    * @returns Promise resolving to configured controller
    */
-  static createFromFile(filePath?: string): Promise<ConversationController>;
+  static createFromFile(): Promise<ConversationController>;
 
   /**
    * Initializes the conversation controller
    * @param filePath - Path to flowchart file
    */
-  initialize(filePath: string): Promise<void>;
+  initialize(): Promise<void>;
 
   /**
    * Gets the current question for user interaction
    * @returns Current question data or null
    */
-  getCurrentQuestion(): QuestionData | null;
+  getCurrentQuestion(filePath: PathLike): QuestionData | null;
 
   /**
    * Processes user input and updates conversation state

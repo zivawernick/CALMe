@@ -72,15 +72,15 @@ export function ChatMessage({
 
 
 return (
-  <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-        <div className={`flex items-start gap-3 max-w-[280px] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+  <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 max-w-80`}>
+        <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
           {/* This is Same all Messages */}
-          <Avatar className="w-8 h-8 flex-shrink-0">
+          {/* <Avatar className="w-8 h-8 flex-shrink-0">
             <AvatarImage src={isUser ? undefined : "/api/placeholder/32/32"} />
             <AvatarFallback className={isUser ? "bg-primary text-primary-foreground" : "bg-muted"}>
               {isUser ? "U" : "AI"}
             </AvatarFallback>
-          </Avatar>
+          </Avatar> */}
           
           
           <div className="flex flex-col">

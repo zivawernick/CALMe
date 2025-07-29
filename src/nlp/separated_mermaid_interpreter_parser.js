@@ -12,15 +12,25 @@ export class MermaidInterpreter {
     this.isReady = false;
   }
 
+  static async loadFromFile(filePath) {
+    // Load the Mermaid file content
+    const response = await fetch(filePath);
+    const text = await response.text();
+    return text;
+  }
+
   // static async createFromFile(filePath = '/conversation-flow.mermaid') {
-  static async createFromFile(filePath = '../conversation_flows/conversation-flow.mermaid') {
+  static async createFromFile(filePath = '/src/conversation_flows/conversation-flow.mermaid') {
     const interpreter = new MermaidInterpreter();
-    const flowchartText = await FlowchartLoader.loadFromFile(filePath);
+    console.log(filePath);
+    // const flowchartText = await FlowchartLoader.loadFromFile(filePath); // old
+    const flowchartText = await this.loadFromFile(filePath);
     await interpreter.interpret(flowchartText);
     return interpreter;
   }
 
   async interpret(mermaidText) {
+    // console.log(mermaidText);
     console.log('🔍 Interpreting Mermaid flowchart...');
     this.flowchartStructure = this.parseMermaidSyntax(mermaidText);
     this.currentPosition = {
@@ -33,6 +43,7 @@ export class MermaidInterpreter {
   }
 
   parseMermaidSyntax(text) {
+    // console.log(text);
     const nodes = new Map();
     const edges = [];
     
@@ -44,7 +55,8 @@ export class MermaidInterpreter {
     for (const line of lines) {
       const questionMatch = line.match(/(\w+)\{([^}]+)\}/);
       const keywordMatch = line.match(/(\w+)\["([^"]+)"\]/);
-      
+      // console.log(`q: ${questionMatch}, k: ${keywordMatch}`);
+
       if (questionMatch) {
         const [, nodeId, text] = questionMatch;
         nodes.set(nodeId, {
@@ -556,22 +568,29 @@ export class ConversationController {
     this.interpreter = null;
     this.nlpParser = new NLPParser();
     this.isReady = false;
+    this.scriptPath = '/src/conversation_flows/conversation-flow.mermaid'
+    // this.firstNode = null
   }
 
-  static async createFromFile(filePath = '/conversation-flow.mermaid') {
+  // static async createFromFile(filePath = '/src/conversation_flows/conversation-flow.mermaid') {
+  static async createFromFile() {
+    // this.scriptPath = filePath;
     const controller = new ConversationController();
-    await controller.initialize(filePath);
+    // await controller.initialize(filePath);
+    await controller.initialize();
     return controller;
   }
 
-  async initialize(filePath) {
+  // async initialize(filePath) {
+  async initialize() {
     console.log('🚀 Initializing conversation controller...');
-    this.interpreter = await MermaidInterpreter.createFromFile(filePath);
+    // this.interpreter = await MermaidInterpreter.createFromFile(filePath);
+    this.interpreter = await MermaidInterpreter.createFromFile(this.scriptPath);
     this.isReady = true;
     console.log('✅ Conversation controller ready');
   }
 
-  getCurrentQuestion() {
+  getCurrentQuestion(filePath) {
     // bad
     // if (!this.isReady || !this.interpreter.isAtQuestion()) {
     //   return null;
@@ -581,6 +600,8 @@ export class ConversationController {
 
     // Fixed
     if (!this.isReady || this.interpreter === null) {
+      this.scriptPath = filePath;
+      this.initialize()
       return null;
     }
     // At this point, TypeScript knows this.interpreter is definitely MermaidInterpreter
@@ -629,9 +650,9 @@ export class ConversationController {
   }
 
   // Development helpers
-  async reloadFlowchart(filePath = '/conversation-flow.mermaid') {
+  async reloadFlowchart() {
     console.log('🔄 Reloading flowchart...');
-    this.interpreter = await MermaidInterpreter.createFromFile(filePath);
+    this.interpreter = await MermaidInterpreter.createFromFile(this.filePath);
     console.log('✅ Flowchart reloaded');
   }
 
@@ -642,6 +663,11 @@ export class ConversationController {
       currentQuestion: this.getCurrentQuestion()
     };
   }
+
+  // async getFirstNode(){
+  //   this.firstNode = await MermaidInterpreter.flowchartStructure;
+  //   return this.firstNode
+  // }
 }
 
 // ============================================================================

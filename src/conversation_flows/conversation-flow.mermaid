@@ -3,28 +3,19 @@ config:
   layout: elk
 ---
 flowchart TD
-    Start(["App Launch"]) --> LaunchType{"Launch Type?"}
-    LaunchType -- User Initiated --> UserLaunch["User Opens App"]
-    LaunchType -- Red Alert Detected --> AlertLaunch["Auto-Launch: 1.5min after alert"]
-    UserLaunch --> LanguageSelect{"Choose your language"}
-    AlertLaunch --> LanguageSelect
-    LanguageSelect -- English --> StressAssess["How are you feeling right now?"]
-    LanguageSelect -- Hebrew --> StressAssess
-    LanguageSelect -- Arabic --> StressAssess
-    StressAssess --> StressLevel{"Stress Level Assessment"}
-    StressLevel -- I feel good / Just exploring --> NoStress["relaxed, calm, fine, good, peaceful, content, at ease, comfortable, stable, balanced, centered, focused, clear, rational, positive, confident, strong, capable, prepared, ready, alert, aware, present, mindful"]
-    StressLevel -- A little uneasy / Not great --> LowStress["slightly worried, minor concern, manageable, mild anxiety, little tension, some unease, bit nervous, somewhat concerned, mildly stressed, low level worry, gentle anxiety, light stress, minor discomfort"]
-    StressLevel -- Anxious / Overwhelmed --> ModerateStress["anxious, worried, uncomfortable, tense, stressed, concerned, uneasy, nervous, apprehensive, agitated, restless, on edge, uptight, worked up, tired out, exhausted, fatigued, weary, drained, overwhelmed, struggling, fighting, battling"]
-    StressLevel -- In crisis / Very scared --> HighStress["very anxious, panicked, overwhelmed, intense, severe stress, extreme worry, high anxiety, major concern, significant nervousness, substantial pressure, heavy strain, crushing doubt, paralyzing concern, crippling worry, debilitating fear, immobilizing tension, shocking burden"]
-    StressLevel -- Helping someone else --> SupportMode["Support-Giver Mode"]
+
+%% Start
+    StressLevel{"Stress Level Assessment?"} -- No Stress --> NoStress["relaxed, calm, fine, good, peaceful, content, at ease, comfortable, stable, balanced, centered, focused, clear, rational, positive, confident, strong, capable, prepared, ready, alert, aware, present, mindful"]
+    StressLevel -- Slightly Stress --> LowStress["slightly worried, minor concern, manageable, mild anxiety, little tension, some unease, bit nervous, somewhat concerned, mildly stressed, low level worry, gentle anxiety, light stress, minor discomfort"]
+    StressLevel -- Moderate Stress --> ModerateStress["anxious, worried, uncomfortable, tense, stressed, concerned, uneasy, nervous, apprehensive, agitated, restless, on edge, uptight, worked up, tired out, exhausted, fatigued, weary, drained, overwhelmed, struggling, fighting, battling"]
+    StressLevel -- High Stress  --> HighStress["very anxious, panicked, overwhelmed, intense, severe stress, extreme worry, high anxiety, major concern, significant nervousness, substantial pressure, heavy strain, crushing doubt, paralyzing concern, crippling worry, debilitating fear, immobilizing tension, shocking burden"]
     NoStress --> WellnessCheck["Thanks for checking in. Try a small activity together?"]
     WellnessCheck -- Yes --> ActivityMenu["Activity Selection"]
     WellnessCheck -- No --> EndSession["Have a beautiful day!"]
     LowStress --> LocationCheck{"Where are you right now?"}
     ModerateStress --> EmergencyProtocol["EMERGENCY PROTOCOL ACTIVATED"]
     HighStress --> EmergencyProtocol
-    SupportMode --> SupportCheck@{ label: "Is the person you're helping with you right now?" }
-    SupportCheck -- Yes, here with me --> InPersonSupport["In-Person Support Tips"]
+    SupportCheck@{ label: "Is the person you're helping with you right now?" } -- Yes, here with me --> InPersonSupport["In-Person Support Tips"]
     SupportCheck -- No, remote help --> RemoteSupport["Remote Support Tips"]
     InPersonSupport --> SupportGuidance["Send this message: Take a deep breath... I am with you"]
     RemoteSupport --> SupportGuidance
@@ -39,3 +30,5 @@ flowchart TD
     MovingToSafety --> ActivityMenu
     ExposedLocation --> UrgentEvacuation["URGENT: Move to shelter immediately"]
     UrgentEvacuation --> ActivityMenu
+
+
