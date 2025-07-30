@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Analysis files
+src/nlp/nlp_traffic.md
