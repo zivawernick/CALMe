@@ -12,7 +12,7 @@ export class MermaidInterpreter {
     this.isReady = false;
   }
 
-  static async loadFromFile(filePath) {
+  async loadFromFile(filePath) {
     // Load the Mermaid file content
     const response = await fetch(filePath);
     const text = await response.text();
@@ -20,9 +20,11 @@ export class MermaidInterpreter {
   }
 
   // static async createFromFile(filePath = '/conversation-flow.mermaid') {
-  static async createFromFile(filePath = '/src/conversation_flows/conversation-flow.mermaid') {
+  async createFromFile(filePath) {
+    if (!filePath) {
+      throw ('No file source given');
+    }
     const interpreter = new MermaidInterpreter();
-    console.log(filePath);
     // const flowchartText = await FlowchartLoader.loadFromFile(filePath); // old
     const flowchartText = await this.loadFromFile(filePath);
     await interpreter.interpret(flowchartText);
@@ -301,6 +303,7 @@ export class NLPParser {
 
   // Main classification method - uses ONLY keywords from flowchart
   classifyInput(userInput, questionData) {
+    // Classifies user input
     const doc = nlp(userInput);
     const text = userInput.toLowerCase();
     
@@ -564,33 +567,38 @@ export class NLPParser {
 // ============================================================================
 
 export class ConversationController {
-  constructor() {
+  constructor(filePath) {
     this.interpreter = null;
     this.nlpParser = new NLPParser();
     this.isReady = false;
-    this.scriptPath = '/src/conversation_flows/conversation-flow.mermaid'
+    this.scriptPath = filePath || null;//'/src/conversation_flows/conversation-flow.mermaid'
     // this.firstNode = null
   }
 
   // static async createFromFile(filePath = '/src/conversation_flows/conversation-flow.mermaid') {
-  static async createFromFile() {
-    // this.scriptPath = filePath;
-    const controller = new ConversationController();
-    // await controller.initialize(filePath);
-    await controller.initialize();
-    return controller;
-  }
+  // static async createFromFile() { // what is the use of this??
+  //   // this.scriptPath = filePath;
+  //   const controller = new ConversationController();
+  //   // await controller.initialize(filePath);
+  //   await controller.initialize();
+  //   return controller;
+  // }
 
   // async initialize(filePath) {
   async initialize() {
     console.log('🚀 Initializing conversation controller...');
     // this.interpreter = await MermaidInterpreter.createFromFile(filePath);
-    this.interpreter = await MermaidInterpreter.createFromFile(this.scriptPath);
+    const mermaidInterperter = new MermaidInterpreter()
+    this.interpreter = await mermaidInterperter.createFromFile(this.scriptPath); // Creates a MermaidInterperter instance
+    // this.firstNode = await mermaidInterperter.getCurrentQuestion();
+    // if (!this.firstNode){
+
+    // }
     this.isReady = true;
     console.log('✅ Conversation controller ready');
   }
 
-  getCurrentQuestion(filePath) {
+  getCurrentQuestion() {
     // bad
     // if (!this.isReady || !this.interpreter.isAtQuestion()) {
     //   return null;
@@ -599,11 +607,14 @@ export class ConversationController {
     // return this.interpreter.getCurrentQuestion();
 
     // Fixed
-    if (!this.isReady || this.interpreter === null) {
-      this.scriptPath = filePath;
-      this.initialize()
-      return null;
-    }
+    if (!this.scriptPath) { // No file path defined
+      return null
+    }  // initiation has occured once
+    // if (!this.isReady || this.interpreter === null) {
+    //   this.scriptPath = filePath;
+    //   this.initialize()
+    //   return null;
+    // }
     // At this point, TypeScript knows this.interpreter is definitely MermaidInterpreter
     if (!this.interpreter.isAtQuestion()) {
       return null;

@@ -335,9 +335,9 @@ export declare class ConversationController {
   interpreter: MermaidInterpreter | null;
   nlpParser: NLPParser;
   isReady: boolean;
-  scriptPath: PathLike;
+  scriptPath: PathLike | null;
 
-  constructor();
+  constructor(filePath: PathLike | null);
 
   /**
    * Creates a ConversationController from a flowchart file
@@ -356,7 +356,7 @@ export declare class ConversationController {
    * Gets the current question for user interaction
    * @returns Current question data or null
    */
-  getCurrentQuestion(filePath: PathLike): QuestionData | null;
+  getCurrentQuestion(): QuestionData | null;
 
   /**
    * Processes user input and updates conversation state

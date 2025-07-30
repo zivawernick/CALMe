@@ -14,6 +14,7 @@ import AppLauncer from './AppLauncher/AppLauncer';
 import { ConversationController } from './nlp/separated_mermaid_interpreter_parser';
 import { Logo } from './assets/logo';
 import type { PathLike } from 'node:fs';
+import { Controller } from 'react-hook-form';
 // import { Theme, ThemePanel } from "@radix-ui/themes";
 
 
@@ -186,19 +187,31 @@ function App() {
   const [currentStep, setCurrentStep] = useState<ConversationStep>('safety');
   const [userInput, setUserInput] = useState('');
   const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
-  const [conversationController, setConversationController] = useState<ConversationController>(new ConversationController());
+  
+  const [conversationController, setConversationController] = useState<ConversationController>();
+  // (async()=>{
+  //   const controllerInstance = new ConversationController(SCRIPT_PATH)
+  //   // const conltroller = await controllerInstance.initialize()
+  //   await controllerInstance.initialize()
+  //   return controllerInstance
+
   const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
   const [showAppsLauncher, setShowAppsLauncher] = useState(false);
   const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
-  const [conversationHistory, setConversationHistory] = useState<Message[]>([{
-      id: Date.now().toString(),
-      type: 'message',
-      content: `${async()=>{return await conversationController.getCurrentQuestion(SCRIPT_PATH)?.question}}` ||"Hello User! I'm here with you, How are you feeling right now?",
-      timestamp: new Date().toISOString(),
-      isUser: false,
-      step: currentStep, 
-      result: null,
-      }]); 
+  const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
+  //   async()=>{
+  //   const question = await conversationController.getCurrentQuestion()?.question;
+  //   const firstMessage = {
+  //     id: Date.now().toString(),
+  //     type: 'message',
+  //     content: question || "Hello User! I'm here with you, How are you feeling right now?",
+  //     timestamp: new Date().toISOString(),
+  //     isUser: false,
+  //     step: currentStep, 
+  //     result: null,
+  //     }
+  //     return [firstMessage];
+  // };
   const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
   
   const [loading, setLoading] = useState(true);
@@ -291,7 +304,9 @@ function App() {
       let currentQuestionData;
 
       try {
-      currentQuestionData = await conversationController?.getCurrentQuestion();
+        // TODO: Move to next Question
+        await conversationController?.processUserInput(userInput);
+        currentQuestionData = await conversationController?.getCurrentQuestion();
       } catch (err: any) {
         console.error('❌ Failed to get a Question from flow:/n', err);
         // setError(err);
@@ -316,14 +331,16 @@ function App() {
     
     createResponse();
 
-  }, [result, currentStep]);
+  }, [userInput]);
+  // }, [result, currentStep]);
 
   useEffect(() => {
     const initController = async () => {
       try {
         setLoading(true);
-        const controller = await ConversationController.createFromFile('/conversation-flow.mermaid');
-        setConversationController(controller);
+        const controllerInstance = new ConversationController(SCRIPT_PATH);
+        await controllerInstance.initialize();
+        setConversationController(controllerInstance);
         console.log('✅ Conversation system initialized');
       } catch (err: any) {
         console.error('❌ Failed to initialize conversation system:', err);
@@ -335,6 +352,37 @@ function App() {
 
     initController();
   }, []);
+
+  useEffect(() => {
+    // This useEffect is used when a new script will be loaded
+    console.log("conversationController");
+    // console.log(loading);
+    // if (!loading) return;
+    if(conversationHistory.length === 0){
+      const initConversation = async()=>{
+        if (!conversationController) return
+        try{
+          const question = await conversationController.getCurrentQuestion()?.question;
+          console.log(question);
+          const firstMessage: Message = {
+            id: Date.now().toString(),
+            type: 'message',
+            content: question || "Hello User! I'm here with you, How are you feeling right now?",
+            timestamp: new Date().toISOString(),
+            isUser: false,
+            step: currentStep, 
+            result: null,
+            }
+          setConversationHistory([firstMessage]) ;
+        } catch (err) {
+          console.log('First question failed: ', err);
+        }
+    };
+    
+    initConversation();
+    } 
+  }, [conversationController])
+  
   
 
   const getResult = () => {
