@@ -112,8 +112,8 @@ interface CategoryScore {
 
 ### Error Handling Requirements
 - Functions must not throw exceptions
-- Functions must return valid result objects even for invalid input
-- Functions must provide fallback confidence scores (0.5) for unclear cases
+- Functions must return clear error message for invalid input
+- Functions must provide clear error message for failed parsing
 - Functions must handle empty strings, null, or undefined inputs gracefully
 
 ### Dynamic Adaptation Requirements
@@ -123,6 +123,94 @@ interface CategoryScore {
 - Parser must return categories that exist in `questionData.categories`
 - When chart is updated, parser should automatically adapt
 - No code changes required when chart changes
+
+## Mermaid Chart Structure Understanding
+
+### Node Types and Their NLP Requirements
+
+#### 1. **Diamond Nodes** (Decision Points)
+```mermaid
+LocationCheck{"Where are you right now?"}
+```
+- **Purpose**: Questions that require user classification
+- **NLP Task**: Classify user input into one of the available categories
+- **Example**: User says "I'm at home" → Classify as "In Safe Space"
+- **Keywords**: Extracted from the edge labels (e.g., "In Safe Space", "Moving to Safety")
+
+#### 2. **Rectangle Nodes** (Keyword Collections)
+```mermaid
+ModerateStress["anxious, worried, uncomfortable, tense, stressed, concerned, uneasy, nervous, apprehensive, agitated, restless, on edge, uptight, worked up, tired out, exhausted, fatigued, weary, drained, overwhelmed, struggling, fighting, battling"]
+```
+- **Purpose**: Define keywords for category classification
+- **NLP Task**: Use these keywords to understand user intent
+- **Example**: User says "I'm feeling really anxious" → Match to "ModerateStress" category
+- **Keywords**: Comma-separated list of related terms
+
+#### 3. **Circle Nodes** (Start/End Points)
+```mermaid
+Start@{ label: "Hi there. I'm here with you. Let me ask...What's your stress level like??" }
+```
+- **Purpose**: Conversation entry/exit points
+- **NLP Task**: Usually no classification needed (system output)
+- **Example**: System greeting, no user input to classify
+
+#### 4. **Edge Labels** (Category Names)
+```mermaid
+Start -- Moderate Stress --> ModerateStress
+```
+- **Purpose**: Define the category names for classification
+- **NLP Task**: These become the available categories for the parser
+- **Example**: "Moderate Stress", "High Stress", "No Stress" are category options
+
+### NLP Processing Flow Example
+
+#### Step 1: User Input Classification
+**User says**: "I'm feeling really anxious and overwhelmed"
+**Current node**: `Start` (diamond node asking about stress level)
+**Available categories**: "Moderate Stress", "No Stress", "Low Stress", "High Stress"
+
+**NLP Task**: 
+- Extract keywords from each category's rectangle node
+- Compare user input against all category keywords
+- Return best matching category with confidence score
+
+#### Step 2: Category Matching Process
+```javascript
+// Example processing for "I'm feeling really anxious and overwhelmed"
+ModerateStress keywords: ["anxious", "worried", "uncomfortable", "tense", "stressed", ...]
+HighStress keywords: ["very anxious", "panicked", "overwhelmed", "intense", ...]
+
+// NLP finds matches:
+// - "anxious" matches ModerateStress
+// - "overwhelmed" matches HighStress
+// - "really" is an intensifier
+
+// Result: HighStress category (higher confidence due to "overwhelmed" + intensifier)
+```
+
+#### Step 3: Navigation Based on Classification
+**Result**: HighStress category selected
+**Navigation**: Move to `LocationCheck` node
+**Next question**: "Where are you right now?"
+
+### Keyword Processing Requirements
+
+#### Semantic Understanding
+- **Synonyms**: "anxious" should match "worried", "nervous"
+- **Intensifiers**: "very anxious" should score higher than "anxious"
+- **Negations**: "not anxious" should be handled correctly
+- **Context**: "feeling anxious" vs "anxious situation" should be distinguished
+
+#### Multi-word Matching
+- **Exact phrases**: "worked up", "on edge", "tired out"
+- **Partial matches**: "feeling worked up" should match "worked up"
+- **Semantic similarity**: "stressed" should relate to "anxious", "worried"
+
+#### Confidence Scoring
+- **Multiple keyword matches**: Higher confidence
+- **Intensifiers present**: Boost confidence
+- **Contradictory terms**: Lower confidence
+- **Uncertainty markers**: "maybe", "perhaps", "think" → Lower confidence
 
 ## OPTIONAL INFORMATION AVAILABLE
 

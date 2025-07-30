@@ -1,7 +1,7 @@
 # USE Lite Architecture Implementation Plan
 
 ## Overview
-This document outlines the detailed implementation plan for replacing the current compromise.js-based NLPParser with Universal Sentence Encoder (USE) Lite for improved semantic understanding while maintaining offline-first operation.
+This document outlines the detailed implementation plan for replacing the current compromise.js-based NLPParser with Universal Sentence Encoder (USE) Lite for improved semantic understanding while maintaining offline-first operation. The new approach will use USE Lite exclusively without compromise.js dependency.
 
 ## Architecture Goals
 - ✅ Fully offline operation
@@ -59,14 +59,54 @@ scripts/
 vite.config.ts                       # Updated with embedding plugin
 ```
 
+#### Mermaid Chart Understanding
+The NLP system must understand different node types in Mermaid charts:
+
+**Diamond Nodes** (Decision Points):
+```mermaid
+LocationCheck{"Where are you right now?"}
+```
+- **Purpose**: Questions requiring user classification
+- **NLP Task**: Classify user input into available categories
+- **Categories**: Extracted from edge labels
+
+**Rectangle Nodes** (Keyword Collections):
+```mermaid
+ModerateStress["anxious, worried, uncomfortable, tense, stressed, concerned, uneasy, nervous, apprehensive, agitated, restless, on edge, uptight, worked up, tired out, exhausted, fatigued, weary, drained, overwhelmed, struggling, fighting, battling"]
+```
+- **Purpose**: Define keywords for category classification
+- **NLP Task**: Use keywords to understand user intent
+- **Processing**: Comma-separated terms for semantic matching
+
+**Circle Nodes** (Start/End Points):
+```mermaid
+Start@{ label: "Hi there. I'm here with you. Let me ask...What's your stress level like??" }
+```
+- **Purpose**: Conversation entry/exit points
+- **NLP Task**: Usually no classification needed (system output)
+
+**Edge Labels** (Category Names):
+```mermaid
+Start -- Moderate Stress --> ModerateStress
+```
+- **Purpose**: Define category names for classification
+- **NLP Task**: Become available categories for parser
+
 #### Embedding Calculation Process
 ```javascript
 // scripts/calculate-embeddings.js
 1. Parse all .mermaid files in project
-2. Extract categories and keywords from each chart
-3. Calculate embeddings for each category's keywords
-4. Generate category-embeddings.json
-5. Bundle with app during build
+2. Extract diamond nodes (decision points) and their edge labels (categories)
+3. Extract rectangle nodes (keyword collections) for each category
+4. Calculate embeddings for each category's keyword list
+5. Generate category-embeddings.json with node mappings
+6. Bundle with app during build
+
+// Example processing for the provided chart:
+// Diamond node: LocationCheck{"Where are you right now?"}
+// Edge categories: "In Safe Space", "Moving to Safety", "Unsheltered"
+// Rectangle nodes: InSafety["safe room, shelter, protected area, ..."]
+// Result: Embeddings for each category's keywords
 ```
 
 ### 2. USE Lite Integration
@@ -79,6 +119,7 @@ vite.config.ts                       # Updated with embedding plugin
     "@tensorflow-models/universal-sentence-encoder": "^1.3.3"
   }
 }
+// Note: Removed compromise.js dependency - USE Lite handles all NLP tasks
 ```
 
 #### Model Loading Strategy
@@ -113,6 +154,12 @@ class NLPParser {
 - calculateSimilarity(embedding1: number[], embedding2: number[]): number
 - loadPreCalculatedEmbeddings(): void  // Load category embeddings
 - findBestCategoryMatch(userEmbedding: number[], categories: Record<string, CategoryInfo>): CategoryScore[]
+- handleNoKeywordMatch(userInput: string, categories: Record<string, CategoryInfo>): ClassificationResult
+- calculateSemanticSimilarity(userEmbedding: number[], categoryEmbeddings: Record<string, number[]>): CategoryScore[]
+- fuzzyKeywordMatch(text: string, keywords: string[]): number  // Fuzzy matching
+- detectLinguisticPatterns(text: string): LinguisticAnalysis  // Pattern detection
+- createDescriptiveError(userInput: string, analysis: any, reason: string): ClassificationResult  // Error creation
+```
 
 // ✅ ALLOWED: Add these as private methods to NLPParser class
 // ✅ ALLOWED: Create new utility files for embedding calculations
@@ -122,25 +169,61 @@ class NLPParser {
 
 ### 4. Performance Optimization
 
+#### No Keyword Match Handling
+When user input contains no valid keywords, USE Lite will:
+
+**Semantic Similarity Approach:**
+```javascript
+// Example: User says "I'm not sure how I feel"
+// 1. Embed user input: "I'm not sure how I feel" → [0.123, 0.456, ...]
+// 2. Compare with all category embeddings:
+//    - "Moderate Stress" embedding: [0.234, 0.567, ...] → similarity: 0.45
+//    - "Low Stress" embedding: [0.345, 0.678, ...] → similarity: 0.52
+//    - "High Stress" embedding: [0.123, 0.456, ...] → similarity: 0.38
+// 3. Check confidence threshold: 0.52 < 0.6 (semantic threshold)
+// 4. Return descriptive error: "Input unclear - highest similarity 0.52 to 'Low Stress'"
+```
+
+**Confidence Thresholds:**
+- **No keyword matches**: Use semantic similarity with confidence threshold
+- **Semantic similarity only**: Require higher confidence threshold
+- **Very low similarity**: Return descriptive error with analysis details
+- **Minimum confidence threshold**: 0.4 (below this = error, not assumption)
+
+**Fallback Strategy:**
+1. **USE Lite semantic similarity** (even with no keywords)
+2. **Fuzzy keyword matching** (partial matches, typos)
+3. **Linguistic pattern matching** (intensifiers, negations, uncertainty)
+4. **Descriptive error** with analysis details for debugging
+
 #### Pre-calculated Embeddings Format
 ```json
 {
   "categories": {
-    "SAFE": {
-      "keywords": ["safe", "secure", "protected", "okay"],
+    "Moderate Stress": {
+      "keywords": ["anxious", "worried", "uncomfortable", "tense", "stressed", "concerned", "uneasy", "nervous", "apprehensive", "agitated", "restless", "on edge", "uptight", "worked up", "tired out", "exhausted", "fatigued", "weary", "drained", "overwhelmed", "struggling", "fighting", "battling"],
       "embedding": [0.123, 0.456, ...],  // 512-dimensional vector
-      "categoryName": "SAFE"
+      "categoryName": "Moderate Stress",
+      "nodeId": "ModerateStress"
     },
-    "DANGER": {
-      "keywords": ["help", "trapped", "danger", "emergency"],
+    "High Stress": {
+      "keywords": ["very anxious", "panicked", "overwhelmed", "intense", "severe stress", "extreme worry", "high anxiety", "major concern", "significant nervousness", "substantial pressure", "heavy strain", "crushing doubt", "paralyzing concern", "crippling worry", "debilitating fear", "immobilizing tension", "shocking burden"],
       "embedding": [0.789, 0.012, ...],
-      "categoryName": "DANGER"
+      "categoryName": "High Stress",
+      "nodeId": "HighStress"
+    },
+    "In Safe Space": {
+      "keywords": ["safe room", "shelter", "protected area", "mamad", "miklat", "reinforced space", "secure location", "bomb shelter", "safe zone", "emergency shelter", "designated shelter", "approved location", "secured area"],
+      "embedding": [0.345, 0.678, ...],
+      "categoryName": "In Safe Space",
+      "nodeId": "InSafety"
     }
   },
   "metadata": {
     "modelVersion": "1.3.3",
     "embeddingDimensions": 512,
-    "calculatedAt": "2024-01-15T10:30:00Z"
+    "calculatedAt": "2024-01-15T10:30:00Z",
+    "chartSource": "conversation-flow.mermaid"
   }
 }
 ```
@@ -186,18 +269,28 @@ export default defineConfig({
 
 #### Graceful Degradation
 ```javascript
-// Fallback strategy
-1. Try USE Lite classification
-2. If model fails to load → Use compromise.js fallback
-3. If embedding fails → Use keyword matching
-4. If all else fails → Return default category with low confidence
+// Fallback strategy for no keyword matches
+1. Try USE Lite semantic similarity (even with no exact keyword matches)
+2. If semantic similarity is too low → Use fuzzy keyword matching
+3. If fuzzy matching fails → Use linguistic pattern matching
+4. If all else fails → Return descriptive error for debugging
+
+// Example: User says "I'm not sure how I feel"
+// - No exact keyword matches found
+// - USE Lite calculates semantic similarity to all categories
+// - If similarity is too low → Return error with analysis details
+// - Never assume user intent - always require valid input
 ```
 
 #### Error Scenarios
-- **Model loading fails**: Fallback to compromise.js
-- **Embedding calculation fails**: Use keyword matching
-- **No pre-calculated embeddings**: Calculate at runtime (slower)
-- **Invalid input**: Return default with 0.5 confidence
+- **Model loading fails**: Return descriptive error with model loading details
+- **Embedding calculation fails**: Return error with calculation failure details
+- **No pre-calculated embeddings**: Return error with embedding loading details
+- **Invalid input**: Return error with input validation details
+- **No keyword matches**: Return error with similarity analysis details
+- **Ambiguous input**: Return error with multiple category analysis
+- **Completely unrelated input**: Return error with semantic analysis details
+- **Low confidence across all methods**: Return error with confidence breakdown
 
 ### 7. Memory Management
 
@@ -273,7 +366,8 @@ async function loadModel() {
 - **TensorFlow.js**: ~1.2MB
 - **USE Lite model**: ~1.0MB
 - **Pre-calculated embeddings**: ~0.1MB
-- **Total increase**: ~2.3MB
+- **Removed compromise.js**: ~-0.5MB (savings)
+- **Total increase**: ~1.8MB (net increase)
 
 #### Optimization Strategies
 - **Code splitting**: Load model separately
@@ -324,6 +418,8 @@ async function loadModel() {
 - ✅ Automated embedding calculation
 - ✅ Zero breaking changes to existing codebase
 - ✅ All existing function calls work identically
+- ✅ Descriptive errors instead of hardcoded assumptions
+- ✅ No system-derived behavior divorced from user input
 
 ### Performance Requirements
 - ✅ Classification time < 200ms
@@ -368,7 +464,7 @@ async function loadModel() {
 - **Test embedding calculation** with sample charts
 
 #### Days 5-7: Basic Integration
-- **Create fallback mechanisms** (compromise.js integration)
+- **Create fallback mechanisms** (fuzzy keyword matching)
 - **Implement basic similarity calculation** functions
 - **Test model loading** and error handling
 - **Validate memory usage** and performance
@@ -387,7 +483,7 @@ async function loadModel() {
 - **Optimize embedding calculation** speed
 - **Implement caching strategies** for model and embeddings
 - **Add memory management** and cleanup
-- **Benchmark performance** against current compromise.js
+- **Benchmark performance** against current keyword matching
 
 #### Days 6-7: Error Handling & Fallbacks
 - **Implement comprehensive error handling**
@@ -487,5 +583,9 @@ Before implementing any code changes, verify:
 - [ ] New files are created for USE Lite utilities
 - [ ] Dependencies are added without modifying existing ones
 - [ ] Build process is enhanced without breaking existing build
+- [ ] Compromise.js dependency is removed and replaced with USE Lite
+- [ ] All linguistic analysis is handled by USE Lite and custom patterns
+- [ ] Descriptive errors returned instead of hardcoded assumptions
+- [ ] No system-derived behavior divorced from user input
 
 **The goal is to enhance the current development with USE Lite, not replace it.** 
