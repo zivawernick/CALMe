@@ -1,5 +1,12 @@
 import nlp from 'compromise'
 
+import { 
+  analyzeText, 
+  classifySafety, 
+  classifyStress, 
+  extractLocation 
+} from './semanticParser.js'
+
 // ============================================================================
 // MERMAID INTERPRETER - Handles flowchart structure and navigation
 // ============================================================================
@@ -181,7 +188,7 @@ export class MermaidInterpreter {
     return {
       id: currentNode.id,
       type: 'classification',
-      question: currentNode.text,
+      question: currentNode.text.slice(1,-1),
       categories: categories,
       clarificationResponse: `Could you tell me more about: ${currentNode.text.toLowerCase()}`,
       defaultCategory: Array.from(currentNode.categories.keys())[0] || 'UNKNOWN'
@@ -304,9 +311,13 @@ export class NLPParser {
   // Main classification method - uses ONLY keywords from flowchart
   classifyInput(userInput, questionData) {
     // Classifies user input
-    const doc = nlp(userInput);
+    // const doc = nlp(userInput);
+    // const text = userInput.toLowerCase();
+    const doc = nlp(userInput.toLowerCase());
     const text = userInput.toLowerCase();
-    
+    console.log('the doc is ', doc);
+    console.log('the text is ', text);
+
     // Perform NLP analysis using only generic linguistic features
     const nlpAnalysis = this.performGenericAnalysis(doc, text);
     
@@ -329,8 +340,14 @@ export class NLPParser {
 
   performGenericAnalysis(doc, text) {
     // Generic linguistic analysis - no domain-specific knowledge
+    
+    // console.log('the doc is ', doc);
+    // console.log('the text is ', text);
     return {
-      sentiment: doc.sentiment().out('normal'),
+      // sentiment: doc.sentiment().out('normal'),
+      sentiment: 'negative',
+      // sentiment: doc.sentiment, // isn't this supposed to be a number?
+      // sentiment: Math.random(),
       entities: {
         people: doc.people().out('array'),
         places: doc.places().out('array'),
@@ -627,22 +644,31 @@ export class ConversationController {
       return { success: false, error: 'Controller not ready' };
     }
 
+
     const currentQuestion = this.getCurrentQuestion();
     if (!currentQuestion) {
       return { success: false, error: 'Not at a question' };
     }
-
+    console.log('user input: ', userInput, '\ncurrent question: ', currentQuestion);
     // Use NLP parser to understand input
-    let result;
-    if (currentQuestion.type === 'classification') {
-      result = this.nlpParser.classifyInput(userInput, currentQuestion);
-    } else {
-      result = this.nlpParser.extractInformation(userInput, currentQuestion);
+    // let result;
+    // if (currentQuestion.type === 'classification') {
+    //   result = this.nlpParser.classifyInput(userInput, currentQuestion);
+    // } else {
+    //   result = this.nlpParser.extractInformation(userInput, currentQuestion);
+    // }
+    let result = this.nlpParser.classifyInput(userInput, currentQuestion);
+    if (currentQuestion.type !== 'classification') {
+     result = this.nlpParser.extractInformation(userInput, currentQuestion);
     }
+    console.log('user Input was classified as ', result);
 
     // Use interpreter to navigate
     if (result.type === 'classification') {
+      console.log('old current position ', this.interpreter.currentPosition);
       const navigationResult = this.interpreter.navigateToCategory(result.category);
+      console.log('navigation to ', result.category);
+      console.log('new current position ', this.interpreter.currentPosition);
       if (!navigationResult.success) {
         return { success: false, error: navigationResult.error };
       }

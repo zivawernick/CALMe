@@ -8,13 +8,12 @@ import { Button } from "./chat_interface/ui/button";
 import { MoreVertical, Settings, Accessibility } from "lucide-react"; // Icon TODO - CHANGE
 import { toast } from "sonner"; // pop up notifications
 import './styles/globals.css';
-import { classifySafety, classifyStress, extractLocation } from './nlp/semanticParser';
+import { classifySafety, classifyStress, extractLocation } from './nlp/semanticParser.js';
 import { AppsContext, AppsProvider, InnerApps, type AppInterface } from './appsContextApi';
 import AppLauncer from './AppLauncher/AppLauncer';
 import { ConversationController } from './nlp/separated_mermaid_interpreter_parser';
 import { Logo } from './assets/logo';
 import type { PathLike } from 'node:fs';
-import { Controller } from 'react-hook-form';
 // import { Theme, ThemePanel } from "@radix-ui/themes";
 
 
@@ -70,8 +69,8 @@ interface Message {
   isUser: boolean;
   appsTypes?: 'activities' | 'games';
   audioDuration?: number;
-  step: ConversationStep;
-  result: ClassificationResult| ExtractionResult | null; //any
+  // step: ConversationStep;
+  // result: ClassificationResult| ExtractionResult | null; //any
 }
 
 // Parser Classifications
@@ -184,39 +183,20 @@ type ConversationStep = 'safety' | 'location' | 'stress' | 'complete';
 const SCRIPT_PATH:PathLike = '/src/conversation_flows/conversation-flow.mermaid';
 
 function App() {
-  const [currentStep, setCurrentStep] = useState<ConversationStep>('safety');
+  // const [currentStep, setCurrentStep] = useState<ConversationStep>('safety');
   const [userInput, setUserInput] = useState('');
-  const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
+  // const [result, setResult] = useState<ClassificationResult | ExtractionResult | null>(null);
   
   const [conversationController, setConversationController] = useState<ConversationController>();
-  // (async()=>{
-  //   const controllerInstance = new ConversationController(SCRIPT_PATH)
-  //   // const conltroller = await controllerInstance.initialize()
-  //   await controllerInstance.initialize()
-  //   return controllerInstance
 
   const [chosenApp, setChosenApp] = useState<AppInterface | undefined>();
   const [showAppsLauncher, setShowAppsLauncher] = useState(false);
   const [shouldAutoLaunchApp, setShouldAutoLaunchApp] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
-  //   async()=>{
-  //   const question = await conversationController.getCurrentQuestion()?.question;
-  //   const firstMessage = {
-  //     id: Date.now().toString(),
-  //     type: 'message',
-  //     content: question || "Hello User! I'm here with you, How are you feeling right now?",
-  //     timestamp: new Date().toISOString(),
-  //     isUser: false,
-  //     step: currentStep, 
-  //     result: null,
-  //     }
-  //     return [firstMessage];
-  // };
   const [appsTimeout, setAppsTimeout] = useState<NodeJS.Timeout | null>(null);
   
   const [loading, setLoading] = useState(true);
   // const [error, setError] = useState(null);
-  // const [messages, setMessages] = useState<Message[]>([]); // THIS will become conversationHistoy
   /*const [messages, setMessages] = useState<Message[]>([
     // These are all messages in the chat
     // TODO: change content to be defined be the user ingut or parser's result
@@ -285,43 +265,57 @@ function App() {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-    if (userInput !== '') {
-      // When the user inputs the parser must act
-      getResult();
-    }
+    // if (userInput !== '') {
+    //   // When the user inputs the parser must act
+    //   getResult();
+
+    // }
   // }, [messages]);
   }, [conversationHistory]);
   
   useEffect(() => {
-    console.log(`useEffect started due to change in result and currentStep, \n result is ${result?.type} cerrentStep is ${currentStep}`);
-    if (!result) {
+    // console.log(`useEffect started due to change in result and currentStep, \n result is ${result?.type} cerrentStep is ${currentStep}`);
+    // console.log(`useEffect started due to change in userInput, it is ${userInput}`);
+    if (userInput=='') {
       return;
     }
-    if (currentStep === 'complete') return;
+    // if (!result) {
+    //   return;
+    // }
+    // if (currentStep === 'complete') return;
+
+    console.log(`useEffect started due to change in userInput, it is ${userInput}`);
 
     const createResponse = async() => {
     
       let currentQuestionData;
+      let msgType : Message["type"] = 'message';
 
       try {
         // TODO: Move to next Question
-        await conversationController?.processUserInput(userInput);
+        let nextnode = await conversationController?.processUserInput(userInput);
+        if (nextnode?.isComplete) {
+          console.log('conversation complete!');
+          return;
+        }
+
         currentQuestionData = await conversationController?.getCurrentQuestion();
+        msgType = (nextnode?.shouldTriggerAction)? 'app-buttons':'message';
       } catch (err: any) {
         console.error('❌ Failed to get a Question from flow:/n', err);
         // setError(err);
       } 
       
-      const msgType = (currentStep === 'stress')? 'app-buttons':'message';
-
+      // const msgType = (currentStep === 'stress')? 'app-buttons':'message';
+      
       const newMessage: Message = {
         id: Date.now().toString(),
         type: `${msgType}`,//'message',
         content: `${currentQuestionData? currentQuestionData.question : "I couldn't quite get that, can you say it differenly please?"}`,
         timestamp: new Date().toISOString(),
         isUser: false,
-        step: currentStep, 
-        result: result,
+        // step: currentStep, 
+        // result: result,
         };
 
       const newHistory = [...conversationHistory, newMessage];
@@ -355,7 +349,7 @@ function App() {
 
   useEffect(() => {
     // This useEffect is used when a new script will be loaded
-    console.log("conversationController");
+    console.log("conversationController changed");
     // console.log(loading);
     // if (!loading) return;
     if(conversationHistory.length === 0){
@@ -370,8 +364,8 @@ function App() {
             content: question || "Hello User! I'm here with you, How are you feeling right now?",
             timestamp: new Date().toISOString(),
             isUser: false,
-            step: currentStep, 
-            result: null,
+            // step: currentStep, 
+            // result: null,
             }
           setConversationHistory([firstMessage]) ;
         } catch (err) {
@@ -385,62 +379,62 @@ function App() {
   
   
 
-  const getResult = () => {
-    // This function assesses the stress level and defines a result of Stress Level in %
-    // TODO: combine with text generator from bucket
-    // TODO: Solve High stress immediate breathing app
+  // const getResult = () => {
+  //   // This function assesses the stress level and defines a result of Stress Level in %
+  //   // TODO: combine with text generator from bucket
+  //   // TODO: Solve High stress immediate breathing app
     
-    if (!userInput.trim()) return; 
+  //   if (!userInput.trim()) return; 
     
-    let stepResult: ClassificationResult | ExtractionResult;
+  //   let stepResult: ClassificationResult | ExtractionResult;
     
-    if (currentStep === 'safety') {
-      stepResult = classifyTextSemantic(userInput, SAFETY_ASSESSMENT);
-      setResult(stepResult);
+  //   if (currentStep === 'safety') {
+  //     stepResult = classifyTextSemantic(userInput, SAFETY_ASSESSMENT);
+  //     setResult(stepResult);
       
-      // Determine next step based on safety result
-      const safetyResult = stepResult as ClassificationResult;
-      if (safetyResult.category === 'SAFE') {
-        setCurrentStep('location');
-      } else if (safetyResult.category === 'DANGER') {
-        setCurrentStep('complete'); // In real app, would trigger emergency protocol
-      } else {
-        // UNSURE - could ask clarification or proceed to location
-        setCurrentStep('location');
-      }
+  //     // Determine next step based on safety result
+  //     const safetyResult = stepResult as ClassificationResult;
+  //     if (safetyResult.category === 'SAFE') {
+  //       setCurrentStep('location');
+  //     } else if (safetyResult.category === 'DANGER') {
+  //       setCurrentStep('complete'); // In real app, would trigger emergency protocol
+  //     } else {
+  //       // UNSURE - could ask clarification or proceed to location
+  //       setCurrentStep('location');
+  //     }
       
-    } else if (currentStep === 'location') {
-      stepResult = extractInformationSemantic(userInput, LOCATION_EXTRACTION);
-      setResult(stepResult);
+  //   } else if (currentStep === 'location') {
+  //     stepResult = extractInformationSemantic(userInput, LOCATION_EXTRACTION);
+  //     setResult(stepResult);
       
-      // Move to stress assessment
-      setCurrentStep('stress');
+  //     // Move to stress assessment
+  //     setCurrentStep('stress');
       
-    } else if (currentStep === 'stress') {
-      stepResult = classifyTextSemantic(userInput, STRESS_ASSESSMENT);
-      setResult(stepResult);
+  //   } else if (currentStep === 'stress') {
+  //     stepResult = classifyTextSemantic(userInput, STRESS_ASSESSMENT);
+  //     setResult(stepResult);
       
-      // Check if user is highly stressed and trigger breathing exercise
-      const stressResult = stepResult as ClassificationResult;
-      if (stressResult.category === 'HIGH_STRESS') {
-        setShouldAutoLaunchApp(true);
-        console.log('High stress detected, setting breathing timer...');
-        // Launch breathing exercise immediately
-        const timer = setTimeout(() => {
-          console.log('Breathing timer fired, launching exercise...');
-          const breathingApp = appsContext?.find((subapps)=>(subapps.name==='breathing'));
-          setChosenApp(breathingApp);
-          setShowAppsLauncher(true);
-          console.log('setShowAppsLauncher(true) called');
-        }, 1500);
-        setAppsTimeout(timer);
-      }
-      setCurrentStep('complete');
-    }
-    console.log(`getResult finnished result is ${result?.type} cerrentStep is ${currentStep}`);
-    // Clear input for next question
-    setUserInput('');
-  };
+  //     // Check if user is highly stressed and trigger breathing exercise
+  //     const stressResult = stepResult as ClassificationResult;
+  //     if (stressResult.category === 'HIGH_STRESS') {
+  //       setShouldAutoLaunchApp(true);
+  //       console.log('High stress detected, setting breathing timer...');
+  //       // Launch breathing exercise immediately
+  //       const timer = setTimeout(() => {
+  //         console.log('Breathing timer fired, launching exercise...');
+  //         const breathingApp = appsContext?.find((subapps)=>(subapps.name==='breathing'));
+  //         setChosenApp(breathingApp);
+  //         setShowAppsLauncher(true);
+  //         console.log('setShowAppsLauncher(true) called');
+  //       }, 1500);
+  //       setAppsTimeout(timer);
+  //     }
+  //     setCurrentStep('complete');
+  //   }
+  //   console.log(`getResult finnished result is ${result?.type} cerrentStep is ${currentStep}`);
+  //   // Clear input for next question
+  //   setUserInput('');
+  // };
   
   const handleSendMessage = (e:any) => {
     // This app recieves the e.target.value from the chat input and turns it into a message in the chat area
@@ -451,8 +445,8 @@ function App() {
       content: e,
       timestamp: new Date().toISOString(),
       isUser: true,
-      step: currentStep, 
-      result: null,
+      // step: currentStep, 
+      // result: null,
       };
       // console.log(newMessage);
     const newHistory = [...conversationHistory, newMessage];
@@ -477,9 +471,9 @@ function App() {
       clearTimeout(appsTimeout);
       setAppsTimeout(null);
     }
-    setCurrentStep('safety');
+    // setCurrentStep('safety');
     setUserInput('');
-    setResult(null);
+    // setResult(null);
     setConversationHistory([]);
     setShouldAutoLaunchApp(false);
   };

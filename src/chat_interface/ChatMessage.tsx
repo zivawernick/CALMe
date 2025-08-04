@@ -72,7 +72,7 @@ export function ChatMessage({
 
 
 return (
-  <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 max-w-80`}>
+  <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4 `}>
         <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
           {/* This is Same all Messages */}
           {/* <Avatar className="w-8 h-8 flex-shrink-0">

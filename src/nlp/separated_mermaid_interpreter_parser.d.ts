@@ -87,7 +87,8 @@ export interface CategoryScore {
 }
 
 export interface NLPAnalysis {
-  sentiment: number;
+  // sentiment: number;
+  sentiment: 'positive' | 'negative' | 'neutral';
   entities: {
     people: string[];
     places: string[];

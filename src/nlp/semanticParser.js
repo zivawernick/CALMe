@@ -1,4 +1,5 @@
-// @ts-ignore - Compromise doesn't have TypeScript definitions
+// crisis-analyzer.js
+
 import nlp from 'compromise';
 
 // Extend Compromise with custom crisis language patterns and corrections
@@ -10,7 +11,7 @@ const crisisPlugin = {
     '(help|emergency|danger|attack)': 'DangerState',
     '(siren|rocket|bomb|explosion)': 'DangerIndicator',
     '(shelter|bunker|safe room|basement)': 'SafeLocation',
-    
+
     // Stress/panic patterns
     "can't breathe": 'PanicSymptom',
     'racing (heart|pulse)': 'PanicSymptom',
@@ -20,7 +21,7 @@ const crisisPlugin = {
     '(panic|panicking)': 'PanicState',
     '(anxious|worried|nervous|tense|stress|stressed)': 'AnxiousState',
     '(calm|stable|better|managing)': 'CalmState',
-    
+
     // Location patterns
     'at #Place': 'LocationPhrase',
     'in #Place': 'LocationPhrase',
@@ -43,8 +44,11 @@ const crisisPlugin = {
 // Initialize Compromise with custom plugin
 nlp.plugin(crisisPlugin);
 
-// Apply the patterns to add our custom tags
-function applyCrisisPatterns(doc: any) {
+/**
+ * @param {import('compromise').Document} doc
+ * @returns {import('compromise').Document}
+ */
+function applyCrisisPatterns(doc) {
   // Apply each pattern manually
   Object.entries(crisisPlugin.patterns).forEach(([pattern, tag]) => {
     const matches = doc.match(pattern);
@@ -55,55 +59,56 @@ function applyCrisisPatterns(doc: any) {
   return doc;
 }
 
-export interface SemanticAnalysis {
-  sentiment: 'positive' | 'negative' | 'neutral';
-  negations: string[];
-  entities: {
-    places: string[];
-    people: string[];
-    numbers: string[];
-  };
-  tags: string[];
-  phrases: string[];
-}
+/**
+ * @typedef {Object} SemanticAnalysis
+ * @property {'positive' | 'negative' | 'neutral'} sentiment
+ * @property {string[]} negations
+ * @property {{places: string[], people: string[], numbers: string[]}} entities
+ * @property {string[]} tags
+ * @property {string[]} phrases
+ */
 
-export function analyzeText(text: string): SemanticAnalysis {
+/**
+ * @param {string} text
+ * @returns {SemanticAnalysis}
+ */
+export function analyzeText(text) {
   const doc = applyCrisisPatterns(nlp(text));
-  
+
   // Analyze sentiment based on negations and positive/negative terms
   const negations = doc.match('#Negative').out('array');
   const hasNegation = negations.length > 0;
-  
+
   // Get all custom tags we've identified
   const jsonData = doc.json();
   const tags = [];
-  jsonData.forEach((sentence: any) => {
+  jsonData.forEach((sentence) => {
     if (sentence.terms) {
-      sentence.terms.forEach((term: any) => {
+      sentence.terms.forEach((term) => {
         if (term.tags) {
           tags.push(...term.tags);
         }
       });
     }
   });
-  
+
   // Extract entities
   const places = doc.places().out('array');
   const people = doc.people().out('array');
   const numbers = doc.values().out('array');
-  
+
   // Get noun phrases and verb phrases for better understanding
   const phrases = doc.match('#Determiner? #Adjective* #Noun+').out('array');
-  
+
   // Determine overall sentiment
-  let sentiment: 'positive' | 'negative' | 'neutral' = 'neutral';
-  
+  let sentiment = 'neutral';
+
   if (tags.includes('DangerState') || tags.includes('DangerIndicator') || tags.includes('PanicSymptom')) {
     sentiment = 'negative';
   } else if (tags.includes('SafetyState') || tags.includes('CalmState')) {
     sentiment = hasNegation ? 'negative' : 'positive';
   }
-  
+
   return {
     sentiment,
     negations,
@@ -117,35 +122,40 @@ export function analyzeText(text: string): SemanticAnalysis {
   };
 }
 
-export interface ClassificationResult {
-  category: string;
-  confidence: number;
-  reasoning: string;
-}
+/**
+ * @typedef {Object} ClassificationResult
+ * @property {string} category
+ * @property {number} confidence
+ * @property {string} reasoning
+ */
 
-export function classifySafety(text: string): ClassificationResult {
+/**
+ * @param {string} text
+ * @returns {ClassificationResult}
+ */
+export function classifySafety(text) {
   const doc = nlp(text);
   const analysis = analyzeText(text);
-  
+
   // Check for explicit safety/danger indicators
   const hasSafeWords = doc.has('(safe|secure|protected|okay|fine)');
   const hasDangerWords = doc.has('(danger|help|emergency|trapped|attack)');
   const hasDangerIndicators = doc.has('(siren|rocket|bomb|explosion)');
   const hasSafeLocation = doc.has('(shelter|bunker|safe room|home)');
   const hasNegation = analysis.negations.length > 0;
-  
+
   // Semantic understanding of phrases
   const isAskingForHelp = doc.has('(help|save|rescue)') && !doc.has('no #Negative help');
   const isInDanger = hasDangerWords || hasDangerIndicators || isAskingForHelp;
-  
+
   // Handle negations properly
   const negatedSafety = hasSafeWords && hasNegation; // "not safe", "not okay"
   const confirmedSafety = hasSafeWords && !hasNegation && !isInDanger;
-  
+
   let category = 'UNSURE';
   let confidence = 0.5;
   let reasoning = '';
-  
+
   if (negatedSafety || isInDanger) {
     category = 'DANGER';
     confidence = isAskingForHelp || hasDangerIndicators ? 0.9 : 0.8;
@@ -159,33 +169,33 @@ export function classifySafety(text: string): ClassificationResult {
     confidence = 0.6;
     reasoning = 'Uncertainty expressed';
   }
-  
+
   return { category, confidence, reasoning };
 }
 
-export function classifyStress(text: string): ClassificationResult {
+/**
+ * @param {string} text
+ * @returns {ClassificationResult}
+ */
+export function classifyStress(text) {
   const doc = applyCrisisPatterns(nlp(text));
   const analysis = analyzeText(text);
-  
+
   let stressLevel = 0;
   let confidence = 0.7;
   let reasoning = [];
-  
-  console.log('Classifying stress for text:', text);
-  console.log('Semantic analysis tags:', analysis.tags);
-  console.log('Sentiment:', analysis.sentiment);
-  
+
   // Use semantic tags from the NLP plugin
   if (analysis.tags.includes('PanicSymptom') || analysis.tags.includes('PanicState')) {
     stressLevel += 6;
     reasoning.push('panic indicators detected');
   }
-  
+
   if (analysis.tags.includes('AnxiousState')) {
     stressLevel += 3;
     reasoning.push('anxiety detected');
   }
-  
+
   if (analysis.tags.includes('CalmState')) {
     // Check for negations
     if (analysis.negations.length > 0) {
@@ -196,7 +206,7 @@ export function classifyStress(text: string): ClassificationResult {
       reasoning.push('calm state detected');
     }
   }
-  
+
   // Use sentiment analysis
   if (analysis.sentiment === 'negative') {
     stressLevel += 2;
@@ -205,7 +215,7 @@ export function classifyStress(text: string): ClassificationResult {
     stressLevel -= 1;
     reasoning.push('positive sentiment');
   }
-  
+
   // Look for intensifiers with any stress-related content
   const intensifiers = doc.match('(very|extremely|really|quite|super|highly|high|severely|deeply|incredibly|terribly)');
   if (intensifiers.found && (stressLevel > 0 || doc.has('stress'))) {
@@ -213,28 +223,28 @@ export function classifyStress(text: string): ClassificationResult {
     stressLevel += intensifierWords.length * 2;
     reasoning.push(`intensified: ${intensifierWords.join(', ')}`);
   }
-  
+
   // Special patterns for crisis situations
   if (doc.has("can't breathe") || doc.has("cannot breathe")) {
     stressLevel += 6;
     reasoning.push('breathing difficulty');
   }
-  
+
   if (doc.has('(heart|pulse) (racing|pounding|fast)')) {
     stressLevel += 4;
     reasoning.push('cardiac symptoms');
   }
-  
+
   if (doc.has('(dying|die|death)')) {
     stressLevel += 5;
     reasoning.push('mortality fears');
   }
-  
+
   if (doc.has('losing control') || doc.has('out of control')) {
     stressLevel += 4;
     reasoning.push('loss of control');
   }
-  
+
   // Convert stress level to category
   let category;
   if (stressLevel >= 5) {
@@ -247,28 +257,31 @@ export function classifyStress(text: string): ClassificationResult {
     category = 'LOW_STRESS';
     confidence = 0.8;
   }
-  
-  console.log('Stress classification result:', { text, stressLevel, category, reasoning: reasoning.join('; ') });
-  
-  return { 
-    category, 
-    confidence, 
+
+  return {
+    category,
+    confidence,
     reasoning: reasoning.length > 0 ? reasoning.join('; ') : 'General assessment'
   };
 }
 
-export interface ExtractionResult {
-  extractedValue: string;
-  confidence: number;
-  extractionMethod: string;
-}
+/**
+ * @typedef {Object} ExtractionResult
+ * @property {string} extractedValue
+ * @property {number} confidence
+ * @property {string} extractionMethod
+ */
 
-export function extractLocation(text: string): ExtractionResult {
+/**
+ * @param {string} text
+ * @returns {ExtractionResult}
+ */
+export function extractLocation(text) {
   const doc = nlp(text);
   const analysis = analyzeText(text);
-  
+
   // Try different extraction methods in order of preference
-  
+
   // 1. Look for explicit place names
   if (analysis.entities.places.length > 0) {
     return {
@@ -277,7 +290,7 @@ export function extractLocation(text: string): ExtractionResult {
       extractionMethod: 'Named place extraction'
     };
   }
-  
+
   // 2. Look for location patterns with prepositions
   const locationPhrases = doc.match('(at|in|from) #Determiner? #Adjective* #Noun+').out('array');
   if (locationPhrases.length > 0) {
@@ -289,7 +302,7 @@ export function extractLocation(text: string): ExtractionResult {
       extractionMethod: 'Prepositional phrase extraction'
     };
   }
-  
+
   // 3. Look for common location words
   const commonLocations = doc.match('(home|house|apartment|office|shelter|bunker|building|hospital|school)').out('text');
   if (commonLocations) {
@@ -299,7 +312,7 @@ export function extractLocation(text: string): ExtractionResult {
       extractionMethod: 'Common location word'
     };
   }
-  
+
   // 4. Look for addresses (numbers followed by text)
   const addresses = doc.match('#Value #Noun+').out('array');
   if (addresses.length > 0) {
@@ -309,7 +322,7 @@ export function extractLocation(text: string): ExtractionResult {
       extractionMethod: 'Address pattern'
     };
   }
-  
+
   // 5. If nothing specific found, return the cleaned text
   const cleaned = text.trim();
   return {
