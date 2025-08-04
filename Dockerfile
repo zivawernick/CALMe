@@ -1,9 +1,11 @@
 # Dockerfile for CALMe PWA
 # Multi-stage build for optimized image
 
-# Build stage args
+# Global args for all stages
 ARG NODE_VERSION=22
 ARG NODE_TAG=alpine
+ARG NGINX_VERSION=1.29
+ARG NGINX_TAG=alpine-slim
 
 # Build stage
 FROM node:${NODE_VERSION}-${NODE_TAG} AS builder
@@ -22,10 +24,6 @@ COPY . .
 
 # Build the application
 RUN npx vite build
-
-# Server stage args
-ARG NGINX_VERSION=1.29
-ARG NGINX_TAG=alpine-slim
 
 # Server stage
 FROM nginx:${NGINX_VERSION}-${NGINX_TAG} AS server
