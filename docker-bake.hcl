@@ -6,7 +6,7 @@
 
 variable "REGISTRY" { default = "ghcr.io" }
 variable "GIT_URL" { default = "github.com" }
-variable "OWNER" { default = "CALMe25" }
+variable "ORG" { default = "calme25" }
 variable "REPOSITORY" { default = "calme" }
 variable "IMAGE_TITLE" { default = "calme" }
 variable "TAGS" { default = ["latest"] }
@@ -17,10 +17,10 @@ variable "OCI_LABELS" {
   type = map(string)
   default = {
     "org.opencontainers.image.description" = "CALMe PWA - Cognitive-Affective Learning Model"
-    "org.opencontainers.image.authors"     = "CALMe25"
-    "org.opencontainers.image.source"      = "https://github.com/CALMe25/calme.git"
+    "org.opencontainers.image.authors"     = "calme25"
+    "org.opencontainers.image.source"      = "https://github.com/calme25/calme.git"
     "org.opencontainers.image.title"       = "calme"
-    "org.opencontainers.image.url"         = "https://ghcr.io/CALMe25/calme"
+    "org.opencontainers.image.url"         = "https://ghcr.io/calme25/calme"
   }
 }
 
@@ -54,7 +54,7 @@ target "base" {
   }
 
   tags = [
-    "${REGISTRY}/${OWNER}/${REPOSITORY}/${IMAGE_TITLE}:latest",
+    "${REGISTRY}/${ORG}/${IMAGE_TITLE}:latest",
   ]
 
   # Same map drives both places – no duplication
