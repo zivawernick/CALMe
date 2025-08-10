@@ -3,7 +3,6 @@ name: CI
 'on':
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened]
 env:
   REGISTRY: ghcr.io
   IMAGE_TITLE: calme
